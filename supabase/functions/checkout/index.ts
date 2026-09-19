@@ -1,0 +1,20 @@
+import { createClient } from 'npm:@supabase/supabase-js@2';
+import { corsHeaders } from '../_shared/cors.ts';
+const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{...corsHeaders,'Content-Type':'application/json'}});
+Deno.serve(async req=>{
+ if(req.method==='OPTIONS')return new Response('ok',{headers:corsHeaders});
+ if(req.method!=='POST')return json({error:'Method not allowed'},405);
+ const auth=req.headers.get('Authorization'); if(!auth)return json({error:'Authentication required'},401);
+ const userClient=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_ANON_KEY')!,{global:{headers:{Authorization:auth}}});
+ const {data:{user}}=await userClient.auth.getUser(); if(!user)return json({error:'Invalid session'},401);
+ const body=await req.json().catch(()=>({}));
+ const items=Array.isArray(body.items)?body.items.map((x:any)=>({product_id:x.product_id,variation_id:x.variation_id??null,quantity:x.quantity})):[];
+ const payment_method=String(body.payment_method??'cod'); const destination_country=String(body.destination_country??'').toUpperCase();
+ if(!items.length)return json({error:'Cart is empty'},400);
+ if(!destination_country)return json({error:'Destination country is required'},400);
+ const admin=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+ const {data,error}=await admin.rpc('secure_create_order',{p_user_id:user.id,p_items:items,p_payment_method:payment_method,p_destination_country:destination_country,p_customer_name:String(body.customer_name??''),p_customer_phone:String(body.customer_phone??''),p_shipping_address:String(body.shipping_address??''),p_city:String(body.city??''),p_notes:String(body.notes??''),p_idempotency_key:body.idempotency_key?String(body.idempotency_key):null});
+ if(error)return json({error:error.message},400);
+ const row=Array.isArray(data)?data[0]:data;
+ return json({order_id:row.order_id,subtotal:Number(row.subtotal),tax:Number(row.tax),shipping:Number(row.shipping),total:Number(row.total),currency:row.currency});
+});

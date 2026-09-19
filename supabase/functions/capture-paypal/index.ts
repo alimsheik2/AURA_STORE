@@ -1,0 +1,24 @@
+import { createClient } from 'npm:@supabase/supabase-js@2';
+import { corsHeaders } from '../_shared/cors.ts';
+const json=(b:unknown,s=200)=>new Response(JSON.stringify(b),{status:s,headers:{...corsHeaders,'Content-Type':'application/json'}});
+Deno.serve(async req=>{
+ if(req.method==='OPTIONS') return new Response('ok',{headers:corsHeaders});
+ if(req.method!=='POST') return json({error:'Method not allowed'},405);
+ const auth=req.headers.get('Authorization'); if(!auth) return json({error:'Authentication required'},401);
+ const userClient=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_ANON_KEY')!,{global:{headers:{Authorization:auth}}});
+ const {data:{user}}=await userClient.auth.getUser(); if(!user) return json({error:'Invalid session'},401);
+ const body=await req.json().catch(()=>({})); const orderId=String(body.order_id||''); const paypalId=String(body.paypal_order_id||'');
+ if(!orderId||!paypalId) return json({error:'Missing payment identifiers'},400);
+ const admin=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+ const {data:order,error}=await admin.from('orders').select('id,user_id,total,currency,payment_provider,provider_payment_id,payment_status').eq('id',orderId).eq('user_id',user.id).single();
+ if(error||!order||order.payment_provider!=='paypal'||order.provider_payment_id!==paypalId) return json({error:'Payment does not match order'},403);
+ const auth64=btoa(`${Deno.env.get('PAYPAL_CLIENT_ID')||''}:${Deno.env.get('PAYPAL_CLIENT_SECRET')||''}`);
+ const tr=await fetch('https://api-m.paypal.com/v1/oauth2/token',{method:'POST',headers:{Authorization:`Basic ${auth64}`,'Content-Type':'application/x-www-form-urlencoded'},body:'grant_type=client_credentials'}); const td=await tr.json(); if(!tr.ok) return json({error:'PayPal authentication failed'},400);
+ const cap=await fetch(`https://api-m.paypal.com/v2/checkout/orders/${encodeURIComponent(paypalId)}/capture`,{method:'POST',headers:{Authorization:`Bearer ${td.access_token}`,'Content-Type':'application/json'}}); const data=await cap.json();
+ if(!cap.ok && data?.name!=='ORDER_ALREADY_CAPTURED') return json({error:data?.message||'PayPal capture failed'},400);
+ const captured=data?.purchase_units?.[0]?.payments?.captures?.[0];
+ if(captured?.amount && (captured.amount.currency_code!==order.currency || Number(captured.amount.value)!==Number(order.total).toFixed(2)*1)) return json({error:'Captured amount does not match order'},400);
+ const {error:applyError}=await admin.rpc('apply_verified_payment_event',{p_provider:'paypal',p_provider_event_id:`capture:${paypalId}`,p_event_type:'CHECKOUT.ORDER.CAPTURE.COMPLETED',p_provider_payment_id:paypalId,p_order_id:orderId,p_new_status:'paid',p_payload:data});
+ if(applyError) return json({error:applyError.message},400);
+ return json({ok:true,order_id:orderId});
+});
