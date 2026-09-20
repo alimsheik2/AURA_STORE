@@ -30,7 +30,7 @@ export interface Shop {
   description: string;
   logo_url: string;
   banner_url: string;
-  status: 'pending' | 'approved' | 'suspended';
+  status: 'pending' | 'approved' | 'suspended' | 'rejected';
   created_at: string;
 }
 

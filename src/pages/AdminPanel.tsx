@@ -471,8 +471,9 @@ function SettingsTab() {
       .eq('key', 'marketplace')
       .maybeSingle()
       .then(({ data }) => {
-        if (data?.value) {
-          setSettings((x) => ({ ...x, ...(data.value as Partial<PlatformSettings>) }));
+        const settingData = data as { value?: Partial<PlatformSettings> } | null;
+        if (settingData?.value) {
+          setSettings((x) => ({ ...x, ...settingData.value }));
         }
       });
   }, []);

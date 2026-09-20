@@ -43,7 +43,7 @@ export default function Checkout() {
       .eq('key', 'marketplace')
       .maybeSingle()
       .then(({ data }) => {
-        const v = data?.value as Record<string, boolean> | null;
+        const v = (data as { value?: Record<string, boolean> } | null)?.value ?? null;
         if (v) {
           setPaymentAvailability({
             cod: v.support_cod !== false,

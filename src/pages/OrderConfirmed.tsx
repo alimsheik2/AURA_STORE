@@ -18,9 +18,10 @@ export default function OrderConfirmed() {
   useEffect(() => {
     if (id && searchParams.get('payment') === 'success') {
       supabase.from('orders').select('payment_method,provider_payment_id').eq('id', id).maybeSingle().then(({ data }) => {
-        if (data?.payment_method === 'paypal' && data.provider_payment_id) {
-          supabase.functions.invoke('capture-paypal', { body: { order_id: id, paypal_order_id: data.provider_payment_id } }).then(() => clearCart());
-        } else if (data?.payment_method === 'stripe') {
+        const orderData = data as { payment_method?: string; provider_payment_id?: string } | null;
+        if (orderData?.payment_method === 'paypal' && orderData.provider_payment_id) {
+          supabase.functions.invoke('capture-paypal', { body: { order_id: id, paypal_order_id: orderData.provider_payment_id } }).then(() => clearCart());
+        } else if (orderData?.payment_method === 'stripe') {
           clearCart();
         }
       });

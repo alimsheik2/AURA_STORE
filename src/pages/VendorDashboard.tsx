@@ -174,7 +174,7 @@ function OverviewTab({ shopId }: { shopId: string }) {
         }
       });
 
-      const orderItems = (ordersRes.data as { order: Order; price: number; quantity: number }[]) ?? [];
+      const orderItems = (ordersRes.data as unknown as { order: Order; price: number; quantity: number }[]) ?? [];
       const revenue = orderItems.reduce((sum, oi) => sum + oi.price * oi.quantity, 0);
 
       setStats({
@@ -415,7 +415,7 @@ function ProductModal({ shopId, categories, product, onClose, onSaved }: {
       } else {
         const { data, error } = await supabase.from('products').insert(productData).select().single();
         if (error) throw error;
-        productId = data.id;
+        productId = (data as { id: string }).id;
       }
 
       if (imageUrl && productId) {
@@ -570,7 +570,7 @@ function OrdersTab({ shopId }: { shopId: string }) {
         .eq('shop_id', shopId)
         .order('created_at', { ascending: false });
       const orderMap = new Map<string, Order>();
-      ((data as { order: Order }[]) ?? []).forEach((oi) => {
+      ((data as unknown as { order: Order }[]) ?? []).forEach((oi) => {
         const o = oi.order;
         if (o && !orderMap.has(o.id)) orderMap.set(o.id, o);
       });
@@ -636,7 +636,7 @@ function AnalyticsTab({ shopId }: { shopId: string }) {
         supabase.from('products').select('id').eq('shop_id', shopId),
         supabase.from('order_items').select('price, quantity, order:orders(status)').eq('shop_id', shopId),
       ]);
-      const products = prodRes.data ?? [];
+      const products = (prodRes.data as unknown as { id: string }[]) ?? [];
       const items = (itemsRes.data as { price: number; quantity: number }[]) ?? [];
       const revenue = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
       setStats({

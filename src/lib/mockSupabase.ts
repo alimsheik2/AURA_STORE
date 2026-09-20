@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   INITIAL_CATEGORIES,
   INITIAL_SHOPS,
@@ -6,6 +7,7 @@ import {
   DEMO_PROFILES,
 } from './mockData';
 import type { CartItem, Order, Profile, UserRole } from './types';
+import type { User } from '@supabase/supabase-js';
 
 // In-memory / local storage persistence helpers
 const STORAGE_PREFIX = 'aura_store_';
@@ -48,8 +50,22 @@ let mockSettings: Record<string, unknown> = getStorage('settings', {
   is_public: true,
 });
 
+export function createMockUser(id: string, email: string, metadata: Record<string, unknown> = {}): User {
+  return {
+    id,
+    app_metadata: {},
+    user_metadata: metadata,
+    aud: 'authenticated',
+    created_at: new Date().toISOString(),
+    email,
+    phone: '',
+    role: 'authenticated',
+    updated_at: new Date().toISOString(),
+  };
+}
+
 // Current user state
-let currentUser: { id: string; email: string; user_metadata?: Record<string, unknown> } | null = getStorage('current_user', null);
+let currentUser: User | null = getStorage('current_user', null);
 const authListeners = new Set<(event: string, session: { user: unknown } | null) => void>();
 
 function notifyAuthChange(event: string) {
@@ -65,8 +81,8 @@ function notifyAuthChange(event: string) {
 
 class MockQueryBuilder {
   private tableName: string;
-  private filters: ((item: Record<string, unknown>) => boolean)[] = [];
-  private orderFn: ((a: Record<string, unknown>, b: Record<string, unknown>) => number) | null = null;
+  private filters: ((item: any) => boolean)[] = [];
+  private orderFn: ((a: any, b: any) => number) | null = null;
   private limitCount: number | null = null;
   private isSingle = false;
   private isMaybeSingle = false;
@@ -75,8 +91,8 @@ class MockQueryBuilder {
   private isUpdate = false;
   private isDelete = false;
   private isUpsert = false;
-  private insertData: Record<string, unknown> | Record<string, unknown>[] | null = null;
-  private updateData: Record<string, unknown> | null = null;
+  private insertData: any = null;
+  private updateData: any = null;
 
   constructor(tableName: string) {
     this.tableName = tableName;
@@ -121,6 +137,43 @@ class MockQueryBuilder {
     return this;
   }
 
+  gte(col: string, val: unknown) {
+    this.filters.push((item) => {
+      const v = item[col];
+      return typeof v === 'number' && typeof val === 'number' ? v >= val : String(v) >= String(val);
+    });
+    return this;
+  }
+
+  lte(col: string, val: unknown) {
+    this.filters.push((item) => {
+      const v = item[col];
+      return typeof v === 'number' && typeof val === 'number' ? v <= val : String(v) <= String(val);
+    });
+    return this;
+  }
+
+  gt(col: string, val: unknown) {
+    this.filters.push((item) => {
+      const v = item[col];
+      return typeof v === 'number' && typeof val === 'number' ? v > val : String(v) > String(val);
+    });
+    return this;
+  }
+
+  lt(col: string, val: unknown) {
+    this.filters.push((item) => {
+      const v = item[col];
+      return typeof v === 'number' && typeof val === 'number' ? v < val : String(v) < String(val);
+    });
+    return this;
+  }
+
+  in(col: string, vals: unknown[]) {
+    this.filters.push((item) => Array.isArray(vals) && vals.includes(item[col]));
+    return this;
+  }
+
   order(col: string, options?: { ascending?: boolean }) {
     const asc = options?.ascending !== false;
     this.orderFn = (a, b) => {
@@ -151,13 +204,13 @@ class MockQueryBuilder {
     return this;
   }
 
-  insert(data: Record<string, unknown> | Record<string, unknown>[]) {
+  insert(data: any) {
     this.isInsert = true;
     this.insertData = data;
     return this;
   }
 
-  update(data: Record<string, unknown>) {
+  update(data: any) {
     this.isUpdate = true;
     this.updateData = data;
     return this;
@@ -168,14 +221,14 @@ class MockQueryBuilder {
     return this;
   }
 
-  upsert(data: Record<string, unknown> | Record<string, unknown>[]) {
+  upsert(data: any) {
     this.isUpsert = true;
     this.insertData = data;
     return this;
   }
 
   private execute(): { data: unknown; count?: number; error: null } {
-    let source: Record<string, unknown>[] = [];
+    let source: any[] = [];
     switch (this.tableName) {
       case 'categories':
         source = mockCategories;
@@ -219,10 +272,11 @@ class MockQueryBuilder {
 
     // INSERT
     if (this.isInsert) {
+      if (!this.insertData) return { data: null, error: null };
       const items = Array.isArray(this.insertData) ? this.insertData : [this.insertData];
-      const created = items.map((item) => {
+      const created = items.map((item: any) => {
         const id = item.id || `mock_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-        const fullItem = { ...item, id, created_at: item.created_at || new Date().toISOString() };
+        const fullItem: any = { ...item, id, created_at: item.created_at || new Date().toISOString() };
         if (this.tableName === 'products') {
           fullItem.shop = mockShops.find((s) => s.id === fullItem.shop_id);
           fullItem.category = mockCategories.find((c) => c.id === fullItem.category_id);
@@ -252,13 +306,14 @@ class MockQueryBuilder {
     // UPSERT
     if (this.isUpsert) {
       if (this.tableName === 'platform_settings') {
-        mockSettings = { ...mockSettings, ...this.insertData };
+        mockSettings = { ...mockSettings, ...(this.insertData as Record<string, unknown>) };
         setStorage('settings', mockSettings);
         return { data: mockSettings, error: null };
       }
       if (this.tableName === 'vendor_kyc') {
-        mockKyc = mockKyc.filter((k) => k.user_id !== this.insertData.user_id);
-        mockKyc.push(this.insertData);
+        const insertObj = this.insertData as Record<string, any>;
+        mockKyc = mockKyc.filter((k: any) => k.user_id !== insertObj?.user_id);
+        mockKyc.push(insertObj);
         setStorage('kyc', mockKyc);
         return { data: this.insertData, error: null };
       }
@@ -420,14 +475,23 @@ export const mockSupabase = {
         setStorage('profiles', mockProfiles);
       }
 
-      currentUser = {
-        id: existingProfile.id,
-        email,
-        user_metadata: { full_name: existingProfile.full_name, role: existingProfile.role },
-      };
+      currentUser = createMockUser(existingProfile.id, email, {
+        full_name: existingProfile.full_name,
+        role: existingProfile.role,
+      });
       setStorage('current_user', currentUser);
       notifyAuthChange('SIGNED_IN');
-      return { data: { user: currentUser, session: { user: currentUser } }, error: null };
+      return {
+        data: {
+          user: currentUser,
+          session: {
+            user: currentUser,
+            access_token: 'mock-token',
+            token_type: 'bearer',
+          },
+        },
+        error: null,
+      };
     },
 
     async signUp({ email, options }: { email: string; password?: string; options?: { data?: { role?: string; full_name?: string; phone?: string; country_code?: string } } }) {
@@ -446,18 +510,39 @@ export const mockSupabase = {
       mockProfiles.push(newProfile);
       setStorage('profiles', mockProfiles);
 
-      currentUser = {
-        id: newProfile.id,
-        email,
-        user_metadata: { full_name: fullName, role },
-      };
+      currentUser = createMockUser(newProfile.id, email, {
+        full_name: fullName,
+        role,
+      });
       setStorage('current_user', currentUser);
       notifyAuthChange('SIGNED_IN');
-      return { data: { user: currentUser, session: { user: currentUser } }, error: null };
+      return {
+        data: {
+          user: currentUser,
+          session: {
+            user: currentUser,
+            access_token: 'mock-token',
+            token_type: 'bearer',
+          },
+        },
+        error: null,
+      };
     },
 
     async verifyOtp({ email: _email }: { email: string; token: string; type?: string }) {
-      return { data: { session: currentUser ? { user: currentUser } : null }, error: null };
+      return {
+        data: {
+          user: currentUser,
+          session: currentUser
+            ? {
+                user: currentUser,
+                access_token: 'mock-token',
+                token_type: 'bearer',
+              }
+            : null,
+        },
+        error: null,
+      };
     },
 
     async signOut() {
