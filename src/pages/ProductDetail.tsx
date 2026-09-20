@@ -118,10 +118,10 @@ export default function ProductDetail() {
   const sizes = Array.from(new Set(product.variations?.map((v) => v.size).filter(Boolean) ?? []));
 
   return (
-    <div className="bg-gray-50 min-h-screen">
+    <div className="bg-white min-h-screen">
       {/* Breadcrumb */}
       <div className="max-w-7xl mx-auto px-4 py-4">
-        <nav className="flex items-center gap-1 text-sm text-gray-500">
+        <nav className="flex items-center gap-1 text-sm text-slate-500">
           <Link to="/" className="hover:text-sky-600">{t('nav.home')}</Link>
           <ChevronRight size={14} className="rtl:rotate-180" />
           {product.category && (
@@ -130,13 +130,13 @@ export default function ProductDetail() {
               <ChevronRight size={14} className="rtl:rotate-180" />
             </>
           )}
-          <span className="text-gray-900 font-medium truncate">{product.name}</span>
+          <span className="text-slate-900 font-medium truncate">{product.name}</span>
         </nav>
       </div>
 
       {/* Product main */}
       <div className="max-w-7xl mx-auto px-4 pb-8">
-        <div className="bg-white rounded-2xl border border-gray-200 p-6">
+        <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Images */}
             <div>
@@ -187,7 +187,7 @@ export default function ProductDetail() {
                 <StarRating rating={product.rating} size={18} showNumber count={product.rating_count} />
                 {discount > 0 && (
                   <span className="bg-rose-100 text-rose-600 text-xs font-bold px-2 py-1 rounded-md">
-                    -{discount}% OFF
+                    {t('product.discountOff', { discount })}
                   </span>
                 )}
               </div>
@@ -204,24 +204,21 @@ export default function ProductDetail() {
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-2">{t('common.color')}</label>
                   <div className="flex flex-wrap gap-2">
-                    {colors.map((c) => {
-                      const matching = product.variations?.find((v) => v.color === c && (!sizes.length || v.size === sizes[0]));
-                      return (
-                        <button
-                          key={c}
-                          onClick={() => {
-                            const v = product.variations?.find((v) => v.color === c);
-                            if (v) setSelectedVariation(v.id);
-                          }}
-                          className={classNames(
-                            'px-3 py-2 text-sm border rounded-lg transition-all',
-                            variation?.color === c ? 'border-sky-500 bg-sky-50 text-sky-600' : 'border-gray-200 hover:border-gray-300'
-                          )}
-                        >
-                          {c}
-                        </button>
-                      );
-                    })}
+                    {colors.map((c) => (
+                      <button
+                        key={c}
+                        onClick={() => {
+                          const v = product.variations?.find((v) => v.color === c);
+                          if (v) setSelectedVariation(v.id);
+                        }}
+                        className={classNames(
+                          'px-3 py-2 text-sm border rounded-lg transition-all',
+                          variation?.color === c ? 'border-sky-500 bg-sky-50 text-sky-600' : 'border-gray-200 hover:border-gray-300'
+                        )}
+                      >
+                        {c}
+                      </button>
+                    ))}
                   </div>
                 </div>
               )}
@@ -252,7 +249,7 @@ export default function ProductDetail() {
                 {inStock ? (
                   <span className="inline-flex items-center gap-1.5 text-sm text-emerald-600 font-medium">
                     <Check size={16} /> {t('common.inStock')}
-                    {variation && ` (${variation.stock} available)`}
+                    {variation && ` (${variation.stock} ${t('product.available')})`}
                   </span>
                 ) : (
                   <span className="inline-flex items-center gap-1.5 text-sm text-rose-600 font-medium">
@@ -285,7 +282,7 @@ export default function ProductDetail() {
                   className="flex-1 h-11 bg-sky-500 text-white font-medium rounded-lg hover:bg-sky-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {adding ? <Loader2 size={18} className="animate-spin" /> : added ? <Check size={18} /> : <ShoppingCart size={18} />}
-                  {added ? 'Added!' : t('common.addToCart')}
+                  {added ? t('product.added') : t('common.addToCart')}
                 </button>
               </div>
 

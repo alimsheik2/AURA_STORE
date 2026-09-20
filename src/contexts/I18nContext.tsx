@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, ReactNode } from 'react';
+import { PRELOADED_LOCALES } from '@/locales/all';
 
 export const SUPPORTED_LANGUAGES = ['ar', 'en', 'fr', 'es', 'de', 'zh', 'ru'] as const;
 export type Language = typeof SUPPORTED_LANGUAGES[number];
@@ -12,26 +13,7 @@ interface I18nContextValue {
   t: (key: string, options?: Record<string, unknown>) => string;
 }
 
-const FALLBACK_LANGUAGE: Language = 'ar';
-const cache: Partial<Record<Language, Record<string, string>>> = {};
-
-function flatten(input: Record<string, unknown>, prefix = '', out: Record<string, string> = {}) {
-  Object.entries(input).forEach(([key, value]) => {
-    const path = prefix ? `${prefix}.${key}` : key;
-    if (typeof value === 'string') out[path] = value;
-    else if (value && typeof value === 'object') flatten(value as Record<string, unknown>, path, out);
-  });
-  return out;
-}
-
-async function loadLanguage(lang: Language) {
-  if (cache[lang]) return cache[lang]!;
-  const response = await fetch(`/locales/${lang}/translation.json`, { cache: 'no-store' });
-  if (!response.ok) throw new Error(`Failed to load locale ${lang}`);
-  const data = await response.json() as Record<string, unknown>;
-  cache[lang] = flatten(data);
-  return cache[lang]!;
-}
+const DEFAULT_LANGUAGE: Language = 'ar';
 
 function interpolate(value: string, options?: Record<string, unknown>) {
   if (!options) return value;
@@ -43,40 +25,29 @@ const I18nContext = createContext<I18nContextValue | undefined>(undefined);
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [lang, setLang] = useState<Language>(() => {
     const stored = localStorage.getItem('lang') as Language | null;
-    return stored && SUPPORTED_LANGUAGES.includes(stored) ? stored : FALLBACK_LANGUAGE;
+    return stored && SUPPORTED_LANGUAGES.includes(stored) ? stored : DEFAULT_LANGUAGE;
   });
-  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
-    setReady(false);
     document.documentElement.lang = lang;
     document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
     localStorage.setItem('lang', lang);
-    (async () => {
-      try {
-        await loadLanguage(FALLBACK_LANGUAGE);
-        if (lang !== FALLBACK_LANGUAGE) await loadLanguage(lang);
-      } catch (error) {
-        console.error('i18n locale loading failed; using fallback:', error);
-      } finally {
-        if (!cancelled) setReady(true);
-      }
-    })();
-    return () => { cancelled = true; };
   }, [lang]);
 
   const value = useMemo<I18nContextValue>(() => {
-    const current = cache[lang] ?? {};
-    const fallback = cache[FALLBACK_LANGUAGE] ?? {};
+    const currentDict = PRELOADED_LOCALES[lang] || {};
+    const enFallback = PRELOADED_LOCALES['en'] || {};
+    const arFallback = PRELOADED_LOCALES['ar'] || {};
+
     const t = (key: string, options?: Record<string, unknown>) => {
-      const raw = current[key] ?? fallback[key] ?? key;
+      const raw = currentDict[key] ?? enFallback[key] ?? arFallback[key] ?? key;
       return interpolate(raw, options);
     };
+
     return {
       lang,
       dir: lang === 'ar' ? 'rtl' : 'ltr',
-      ready,
+      ready: true,
       setLanguage: setLang,
       toggleLang: () => {
         const index = SUPPORTED_LANGUAGES.indexOf(lang);
@@ -84,7 +55,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
       },
       t,
     };
-  }, [lang, ready]);
+  }, [lang]);
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }
@@ -94,3 +65,4 @@ export function useI18n() {
   if (!ctx) throw new Error('useI18n must be used within I18nProvider');
   return ctx;
 }
+

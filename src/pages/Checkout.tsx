@@ -36,17 +36,30 @@ export default function Checkout() {
     notes: '',
   });
 
-  useEffect(() => { supabase.from('platform_settings').select('value').eq('key','marketplace').maybeSingle().then(({ data }) => { const v = data?.value as any; if (v) setPaymentAvailability({ cod: v.support_cod !== false, stripe: v.support_stripe === true, paypal: v.support_paypal === true }); }); }, []);
-
-  const tax = 0;
-  const total = subtotal;
+  useEffect(() => {
+    supabase
+      .from('platform_settings')
+      .select('value')
+      .eq('key', 'marketplace')
+      .maybeSingle()
+      .then(({ data }) => {
+        const v = data?.value as Record<string, boolean> | null;
+        if (v) {
+          setPaymentAvailability({
+            cod: v.support_cod !== false,
+            stripe: v.support_stripe === true,
+            paypal: v.support_paypal === true,
+          });
+        }
+      });
+  }, []);
 
   if (items.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
-          <p className="text-gray-500 mb-4">{t('cart.emptyTitle')}</p>
-          <Link to="/search" className="text-sky-600 font-medium">{t('checkout.browseProducts')}</Link>
+          <p className="text-slate-500 mb-4">{t('cart.emptyTitle')}</p>
+          <Link to="/search" className="text-sky-600 font-medium hover:text-sky-700">{t('checkout.browseProducts')}</Link>
         </div>
       </div>
     );
@@ -99,9 +112,9 @@ export default function Checkout() {
   }, {} as Record<string, typeof items>);
 
   return (
-    <div className="bg-gray-50 min-h-screen">
+    <div className="bg-white min-h-screen">
       <div className="max-w-4xl mx-auto px-4 py-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">{t('common.checkout')}</h1>
+        <h1 className="text-2xl font-bold text-slate-900 mb-6">{t('common.checkout')}</h1>
 
         {/* Steps */}
         <div className="flex items-center justify-center mb-8">
@@ -111,16 +124,18 @@ export default function Checkout() {
               <div key={s.id} className="flex items-center">
                 <div className={classNames(
                   'flex flex-col items-center gap-1.5',
-                  i <= step ? 'text-sky-600' : 'text-gray-400'
+                  i <= step ? 'text-sky-600' : 'text-slate-400'
                 )}>
                   <div className={classNames(
                     'w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all',
                     i < step ? 'bg-sky-500 border-sky-500 text-white' :
-                    i === step ? 'border-sky-500 bg-sky-50' : 'border-gray-300 bg-white'
+                    i === step ? 'border-sky-500 bg-sky-50' : 'border-gray-200 bg-white'
                   )}>
                     {i < step ? <Check size={18} /> : <Icon size={18} />}
                   </div>
-                  <span className="text-xs font-medium">{s.label}</span>
+                  <span className="text-xs font-medium">
+                    {s.id === 0 ? t('checkout.shipping') : s.id === 1 ? t('checkout.payment') : t('checkout.review')}
+                  </span>
                 </div>
                 {i < steps.length - 1 && (
                   <div className={classNames('w-16 h-0.5 mx-2 mb-5', i < step ? 'bg-sky-500' : 'bg-gray-200')} />
@@ -155,7 +170,7 @@ export default function Checkout() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Phone Number</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('checkout.phone')}</label>
                       <input
                         type="tel"
                         required
@@ -166,18 +181,18 @@ export default function Checkout() {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Destination Country (ISO code)</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('checkout.destinationCountry')}</label>
                     <input type="text" maxLength={2} value={country} onChange={(e) => setCountry(e.target.value.toUpperCase())} className="w-full h-11 px-3 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-sky-400" placeholder="IQ" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Shipping Address</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('checkout.shippingAddress')}</label>
                     <textarea
                       required
                       rows={3}
                       value={form.address}
                       onChange={(e) => setForm({ ...form, address: e.target.value })}
                       className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 resize-none"
-                      placeholder="Street address, building, apartment..."
+                      placeholder={t('checkout.addressPlaceholder')}
                     />
                   </div>
                   <div>
@@ -191,13 +206,13 @@ export default function Checkout() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Delivery Notes (optional)</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('checkout.deliveryNotes')}</label>
                     <textarea
                       rows={2}
                       value={form.notes}
                       onChange={(e) => setForm({ ...form, notes: e.target.value })}
                       className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 resize-none"
-                      placeholder="Any special instructions for delivery..."
+                      placeholder={t('checkout.notesPlaceholder')}
                     />
                   </div>
                 </div>
@@ -210,13 +225,13 @@ export default function Checkout() {
                 <h2 className="text-lg font-bold text-gray-900 mb-4">{t('checkout.payment')}</h2>
                 <div className="space-y-3">
                   {[
-                    {id:'cod' as const, title:t('checkout.cod'), desc:'Pay with cash when your order arrives', icon:Truck},
-                    {id:'stripe' as const, title:'Card / Stripe', desc:'Online card payment (enable Stripe in admin settings)', icon:CreditCard},
-                    {id:'paypal' as const, title:'PayPal', desc:'Pay securely with PayPal (enable PayPal in admin settings)', icon:WalletCards},
+                    {id:'cod' as const, title:t('checkout.cod'), desc:t('checkout.codDesc'), icon:Truck},
+                    {id:'stripe' as const, title:t('checkout.stripe'), desc:t('checkout.stripeDesc'), icon:CreditCard},
+                    {id:'paypal' as const, title:t('checkout.paypal'), desc:t('checkout.paypalDesc'), icon:WalletCards},
                   ].map(({id,title,desc,icon:Icon}) => (
                     <button type="button" key={id} onClick={()=>paymentAvailability[id] && setPaymentMethod(id)} disabled={!paymentAvailability[id]} className={classNames('w-full text-start border-2 rounded-xl p-4 flex items-center gap-3', paymentMethod===id ? 'border-sky-500 bg-sky-50' : 'border-gray-200 bg-white', !paymentAvailability[id] && 'opacity-50 cursor-not-allowed')}>
                       <div className={classNames('w-12 h-12 rounded-lg flex items-center justify-center', paymentMethod===id ? 'bg-sky-500' : 'bg-gray-100')}><Icon className={paymentMethod===id ? 'text-white' : 'text-gray-500'} size={24}/></div>
-                      <div><p className="font-semibold text-gray-900">{title}</p><p className="text-sm text-gray-500">{paymentAvailability[id] ? desc : 'Not enabled yet'}</p></div>
+                      <div><p className="font-semibold text-gray-900">{title}</p><p className="text-sm text-gray-500">{paymentAvailability[id] ? desc : t('checkout.notEnabled')}</p></div>
                       {paymentMethod===id && <Check className="ms-auto text-sky-500" size={24}/>}
                     </button>
                   ))}
@@ -230,11 +245,11 @@ export default function Checkout() {
                 <h2 className="text-lg font-bold text-gray-900 mb-4">{t('checkout.review')}</h2>
 
                 <div className="mb-4 pb-4 border-b border-gray-100">
-                  <h3 className="text-sm font-semibold text-gray-900 mb-2">Shipping To</h3>
+                  <h3 className="text-sm font-semibold text-gray-900 mb-2">{t('checkout.shippingTo')}</h3>
                   <p className="text-sm text-gray-600">{form.name}</p>
                   <p className="text-sm text-gray-600">{form.phone}</p>
                   <p className="text-sm text-gray-600">{form.address}, {form.city}</p>
-                  {form.notes && <p className="text-sm text-gray-500 mt-1">Note: {form.notes}</p>}
+                  {form.notes && <p className="text-sm text-gray-500 mt-1">{t('checkout.noteLabel')}: {form.notes}</p>}
                 </div>
 
                 <div className="mb-4 pb-4 border-b border-gray-100">
@@ -281,11 +296,11 @@ export default function Checkout() {
                   onClick={() => setStep(step - 1)}
                   className="px-5 h-11 text-sm font-medium text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
                 >
-                  Back
+                  {t('common.back')}
                 </button>
               ) : (
                 <Link to="/cart" className="px-5 h-11 text-sm font-medium text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center">
-                  Back to Cart
+                  {t('cart.title')}
                 </Link>
               )}
 
@@ -295,7 +310,7 @@ export default function Checkout() {
                   disabled={!canProceed()}
                   className="px-6 h-11 text-sm font-medium text-white bg-sky-500 rounded-lg hover:bg-sky-600 disabled:opacity-50"
                 >
-                  Continue
+                  {t('checkout.continue')}
                 </button>
               ) : (
                 <button

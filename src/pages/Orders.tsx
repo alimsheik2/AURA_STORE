@@ -1,18 +1,18 @@
 import { useI18n } from '@/contexts/I18nContext';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Package, Loader2, ChevronRight } from 'lucide-react';
+import { Package, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import type { Order } from '@/lib/types';
 import { formatPriceSimple, formatDateTime, classNames } from '@/lib/utils';
 
 const statusStyles: Record<string, string> = {
-  pending: 'bg-amber-100 text-amber-700',
-  confirmed: 'bg-sky-100 text-sky-700',
-  shipped: 'bg-indigo-100 text-indigo-700',
-  delivered: 'bg-emerald-100 text-emerald-700',
-  cancelled: 'bg-rose-100 text-rose-700',
+  pending: 'bg-amber-50 text-amber-700 border border-amber-200',
+  confirmed: 'bg-sky-50 text-sky-700 border border-sky-200',
+  shipped: 'bg-blue-50 text-blue-700 border border-blue-200',
+  delivered: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+  cancelled: 'bg-rose-50 text-rose-700 border border-rose-200',
 };
 
 export default function Orders() {
@@ -36,15 +36,15 @@ export default function Orders() {
   }, [user]);
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-sky-500" size={32} /></div>;
+    return <div className="min-h-screen bg-white flex items-center justify-center"><Loader2 className="animate-spin text-sky-500" size={32} /></div>;
   }
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
-          <p className="text-gray-500 mb-4">{t('orders.signIn')}</p>
-          <Link to="/signin" className="text-sky-600 font-medium">{t('auth.signin')}</Link>
+          <p className="text-slate-500 mb-4">{t('orders.signIn')}</p>
+          <Link to="/signin" className="text-sky-600 font-medium hover:text-sky-700">{t('auth.signin')}</Link>
         </div>
       </div>
     );
@@ -52,11 +52,11 @@ export default function Orders() {
 
   if (orders.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center max-w-md">
-          <Package className="mx-auto text-gray-300 mb-4" size={48} />
-          <h1 className="text-xl font-bold text-gray-900 mb-2">{t('orders.noOrders')}</h1>
-          <p className="text-gray-500 text-sm mb-6">{t('orders.emptyText')}</p>
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center max-w-md shadow-sm">
+          <Package className="mx-auto text-slate-300 mb-4" size={48} />
+          <h1 className="text-xl font-bold text-slate-900 mb-2">{t('orders.noOrders')}</h1>
+          <p className="text-slate-500 text-sm mb-6">{t('orders.emptyText')}</p>
           <Link to="/search" className="inline-block px-6 py-3 bg-sky-500 text-white font-medium rounded-lg hover:bg-sky-600 transition-colors">
             {t('cart.continueShopping')}
           </Link>
@@ -66,19 +66,19 @@ export default function Orders() {
   }
 
   return (
-    <div className="bg-gray-50 min-h-screen">
-      <div className="max-w-4xl mx-auto px-4 py-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">{t('orders.title')}</h1>
+    <div className="bg-white min-h-screen">
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        <h1 className="text-2xl font-bold text-slate-900 mb-6">{t('orders.title')}</h1>
 
         <div className="space-y-4">
           {orders.map((order) => (
-            <div key={order.id} className="bg-white rounded-xl border border-gray-200 p-5">
+            <div key={order.id} className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
               <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-100">
                 <div>
-                  <p className="text-sm font-semibold text-gray-900">Order #{order.id.slice(0, 8)}</p>
-                  <p className="text-xs text-gray-500">{formatDateTime(order.created_at)}</p>
+                  <p className="text-sm font-semibold text-slate-900">Order #{order.id.slice(0, 8)}</p>
+                  <p className="text-xs text-slate-500">{formatDateTime(order.created_at)}</p>
                 </div>
-                <span className={classNames('text-xs font-bold px-3 py-1 rounded-full capitalize', statusStyles[order.status] ?? 'bg-gray-100 text-gray-700')}>
+                <span className={classNames('text-xs font-semibold px-3 py-1 rounded-full capitalize', statusStyles[order.status] ?? 'bg-gray-100 text-gray-700')}>
                   {t(`common.${order.status}`)}
                 </span>
               </div>
@@ -87,26 +87,26 @@ export default function Orders() {
                 {order.order_items?.map((item) => (
                   <div key={item.id} className="flex gap-3">
                     {item.product_image && (
-                      <img src={item.product_image} alt="" className="w-14 h-14 rounded-lg object-cover" />
+                      <img src={item.product_image} alt="" className="w-14 h-14 rounded-lg object-cover border border-gray-100" />
                     )}
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900">{item.product_name}</p>
-                      {item.variation_name && <p className="text-xs text-gray-500">{item.variation_name}</p>}
-                      <p className="text-xs text-gray-500">Qty: {item.quantity}</p>
+                      <p className="text-sm font-medium text-slate-900">{item.product_name}</p>
+                      {item.variation_name && <p className="text-xs text-slate-500">{item.variation_name}</p>}
+                      <p className="text-xs text-slate-500">{t('orders.qtyLabel')}: {item.quantity}</p>
                     </div>
-                    <span className="text-sm font-bold text-gray-900">{formatPriceSimple(item.price * item.quantity)}</span>
+                    <span className="text-sm font-bold text-slate-900">{formatPriceSimple(item.price * item.quantity)}</span>
                   </div>
                 ))}
               </div>
 
               <div className="flex justify-between items-center pt-4 mt-4 border-t border-gray-100">
-                <div className="text-sm text-gray-600">
-                  <span className="text-gray-400">{t('orders.totalLabel')} </span>
-                  <span className="font-bold text-gray-900">{formatPriceSimple(order.total)}</span>
+                <div className="text-sm text-slate-600">
+                  <span className="text-slate-400">{t('orders.totalLabel')} </span>
+                  <span className="font-bold text-slate-900">{formatPriceSimple(order.total)}</span>
                 </div>
-                <div className="text-sm text-gray-500">
-                  {order.payment_method === 'cod' ? 'Cash on Delivery' : order.payment_method.toUpperCase()}
-                  {order.tracking_number && <div className="text-xs text-sky-600 mt-1">Tracking: {order.tracking_number}</div>}
+                <div className="text-sm text-slate-500">
+                  {order.payment_method === 'cod' ? t('checkout.cod') : order.payment_method.toUpperCase()}
+                  {order.tracking_number && <div className="text-xs text-sky-600 mt-1">{t('orders.tracking')}: {order.tracking_number}</div>}
                 </div>
               </div>
 
@@ -126,7 +126,7 @@ export default function Orders() {
                   );
                 })}
               </div>
-              <div className="flex justify-between mt-1.5 text-[10px] text-gray-400">
+              <div className="flex justify-between mt-1.5 text-[10px] text-slate-400">
                 <span>{t('orders.placed')}</span>
                 <span>{t('orders.confirmed')}</span>
                 <span>{t('orders.shipped')}</span>

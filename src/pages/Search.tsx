@@ -208,12 +208,12 @@ export default function Search() {
   );
 
   return (
-    <div className="bg-gray-50 min-h-screen">
+    <div className="bg-white min-h-screen">
       <div className="max-w-7xl mx-auto px-4 py-6">
         <div className="flex gap-6">
           {/* Sidebar - desktop */}
           <aside className="hidden lg:block w-64 shrink-0">
-            <div className="bg-white rounded-xl border border-gray-200 p-5 sticky top-32">
+            <div className="bg-white rounded-xl border border-gray-200 p-5 sticky top-32 shadow-sm">
               <FilterContent />
             </div>
           </aside>
@@ -223,10 +223,10 @@ export default function Search() {
             {/* Header */}
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h1 className="text-xl font-bold text-gray-900">
+                <h1 className="text-xl font-bold text-slate-900">
                   {query ? `Results for "${query}"` : 'All Products'}
                 </h1>
-                <p className="text-sm text-gray-500 mt-0.5">
+                <p className="text-sm text-slate-500 mt-0.5">
                   {loading ? '...' : `${products.length} ${t('common.results')}`}
                 </p>
               </div>
@@ -234,7 +234,7 @@ export default function Search() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setShowFilters(true)}
-                  className="lg:hidden flex items-center gap-2 px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white"
+                  className="lg:hidden flex items-center gap-2 px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white text-slate-700"
                 >
                   <SlidersHorizontal size={16} /> {t('common.filters')}
                 </button>
@@ -243,7 +243,7 @@ export default function Search() {
                   <select
                     value={sort}
                     onChange={(e) => setSort(e.target.value as SortOption)}
-                    className="appearance-none h-10 ps-4 pe-10 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:border-sky-400 cursor-pointer"
+                    className="appearance-none h-10 ps-4 pe-10 text-sm border border-gray-300 rounded-lg bg-white text-slate-900 focus:outline-none focus:border-sky-400 cursor-pointer"
                   >
                     <option value="relevance">{t('search.mostPopular')}</option>
                     <option value="price_asc">{t('search.lowToHigh')}</option>

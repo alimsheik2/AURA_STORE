@@ -22,7 +22,6 @@ import VendorDashboard from '@/pages/VendorDashboard';
 import AdminPanel from '@/pages/AdminPanel';
 
 function ScrollToTop() {
-  const { t } = useI18n();
   const { pathname } = useLocation();
   useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
   return null;
@@ -38,8 +37,9 @@ function RequireAuth({ children }: { children: ReactNode }) {
 
 function RequireRole({ role, children }: { role: 'admin' | 'vendor'; children: ReactNode }) {
   const { t } = useI18n();
-  const { profile, loading } = useAuth();
+  const { user, profile, loading } = useAuth();
   if (loading) return <div className="min-h-screen flex items-center justify-center">{t('common.loading')}</div>;
+  if (!user) return <Navigate to="/signin" replace />;
   if (profile?.role !== role) return <Navigate to="/" replace />;
   return <>{children}</>;
 }

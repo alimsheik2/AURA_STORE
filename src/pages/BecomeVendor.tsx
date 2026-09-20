@@ -18,14 +18,14 @@ export default function BecomeVendor() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-        <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center max-w-md">
-          <Store className="mx-auto text-gray-300 mb-4" size={48} />
-          <h1 className="text-xl font-bold text-gray-900 mb-2">{t('vendor.signInTitle')}</h1>
-          <p className="text-gray-500 text-sm mb-6">{t('vendor.signInText')}</p>
+      <div className="min-h-screen bg-white flex items-center justify-center px-4">
+        <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center max-w-md shadow-sm">
+          <Store className="mx-auto text-slate-300 mb-4" size={48} />
+          <h1 className="text-xl font-bold text-slate-900 mb-2">{t('vendor.signInTitle')}</h1>
+          <p className="text-slate-500 text-sm mb-6">{t('vendor.signInText')}</p>
           <div className="flex gap-3 justify-center">
-            <Link to="/signin" className="px-6 py-3 bg-sky-500 text-white font-medium rounded-lg hover:bg-sky-600">{t('auth.signin')}</Link>
-            <Link to="/signup" className="px-6 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50">{t('auth.signup')}</Link>
+            <Link to="/signin" className="px-6 py-2.5 bg-sky-500 text-white font-medium rounded-lg hover:bg-sky-600 transition-colors">{t('auth.signin')}</Link>
+            <Link to="/signup" className="px-6 py-2.5 border border-gray-300 text-slate-700 font-medium rounded-lg hover:bg-slate-50 transition-colors">{t('auth.signup')}</Link>
           </div>
         </div>
       </div>
@@ -65,14 +65,14 @@ export default function BecomeVendor() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-        <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center max-w-md">
+      <div className="min-h-screen bg-white flex items-center justify-center px-4">
+        <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center max-w-md shadow-sm">
           <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
             <Check className="text-emerald-500" size={48} />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">{t('vendor.shopRegistered')}</h1>
-          <p className="text-gray-500 text-sm mb-4">
-            Your shop has been submitted for approval. You'll be redirected to your dashboard.
+          <h1 className="text-2xl font-bold text-slate-900 mb-2">{t('vendor.shopRegistered')}</h1>
+          <p className="text-slate-500 text-sm mb-4">
+            {t('vendor.submittedForApproval')}
           </p>
         </div>
       </div>
@@ -80,24 +80,24 @@ export default function BecomeVendor() {
   }
 
   return (
-    <div className="bg-gray-50 min-h-screen">
+    <div className="bg-white min-h-screen">
       <div className="max-w-4xl mx-auto px-4 py-8">
         {/* Hero */}
-        <div className="bg-gradient-to-br from-slate-900 to-sky-900 rounded-2xl p-8 text-white mb-6">
+        <div className="bg-slate-900 rounded-2xl p-8 text-white mb-6 shadow-sm">
           <h1 className="text-3xl font-bold mb-2">{t('vendor.startSelling')}</h1>
-          <p className="text-gray-300">{t('vendor.join')}</p>
+          <p className="text-slate-300">{t('vendor.join')}</p>
         </div>
 
         {/* Benefits */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
           {[
-            { icon: TrendingUp, title: 'Grow Your Sales', desc: 'Reach millions of active shoppers' },
-            { icon: Truck, title: 'Easy Fulfillment', desc: 'Manage orders with built-in tools' },
-            { icon: Shield, title: 'Secure Platform', desc: 'Protected payments and trusted reviews' },
+            { icon: TrendingUp, title: t('vendor.growSales'), desc: t('vendor.growSalesText') },
+            { icon: Truck, title: t('vendor.easyFulfillment'), desc: t('vendor.easyFulfillmentText') },
+            { icon: Shield, title: t('vendor.securePlatform'), desc: t('vendor.securePlatformText') },
           ].map((b, i) => {
             const Icon = b.icon;
             return (
-              <div key={i} className="bg-white rounded-xl border border-gray-200 p-5">
+              <div key={i} className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                 <div className="w-10 h-10 bg-sky-50 rounded-lg flex items-center justify-center mb-3">
                   <Icon className="text-sky-500" size={20} />
                 </div>

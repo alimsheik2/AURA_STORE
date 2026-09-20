@@ -1,0 +1,6 @@
+{
+  "name": "AURA-STORE",
+  "description": "Multi-vendor e-commerce marketplace platform featuring customer storefront, vendor dashboard, and admin management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

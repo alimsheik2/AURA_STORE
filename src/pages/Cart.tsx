@@ -137,7 +137,7 @@ export default function Cart() {
               <h2 className="text-lg font-bold text-gray-900 mb-4">{t('cart.summary')}</h2>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between text-gray-600">
-                  <span>{t('common.subtotal')} ({itemCount} items)</span>
+                  <span>{t('common.subtotal')} ({itemCount} {t('common.items')})</span>
                   <span>{formatPriceSimple(subtotal)}</span>
                 </div>
                 <div className="flex justify-between text-gray-600">

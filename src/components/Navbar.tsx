@@ -8,8 +8,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import { useI18n } from '@/contexts/I18nContext';
 import { supabase } from '@/lib/supabase';
+import { formatPriceSimple } from '@/lib/utils';
 import type { Product } from '@/lib/types';
-import { classNames } from '@/lib/utils';
 
 export default function Navbar() {
   const { user, profile, signOut } = useAuth();
@@ -65,16 +65,20 @@ export default function Navbar() {
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
-      {/* Top bar */}
-      <div className="bg-slate-800 text-white text-xs">
+    <header className="sticky top-0 z-50 bg-white border-b border-gray-200">
+      {/* Top utility bar */}
+      <div className="bg-white border-b border-gray-100 text-slate-600 text-xs">
         <div className="max-w-7xl mx-auto px-4 flex items-center justify-between h-9">
-          <p className="hidden sm:block">{t('nav.freeShipping')}</p>
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-slate-800 tracking-wide">AURA</span>
+            <span className="text-slate-300">|</span>
+            <span className="text-slate-500 hidden sm:inline">{t('brand.tagline')}</span>
+          </div>
           <div className="flex items-center gap-4">
-            <label className="flex items-center gap-1 hover:text-sky-300 transition-colors cursor-pointer">
-              <Globe size={14} />
+            <label className="flex items-center gap-1.5 hover:text-sky-600 transition-colors cursor-pointer text-slate-700">
+              <Globe size={13} className="text-slate-500" />
               <span className="sr-only">{t('nav.language')}</span>
-              <select value={lang} onChange={(e) => setLanguage(e.target.value as typeof lang)} className="bg-transparent border-0 outline-none text-white text-xs cursor-pointer">
+              <select value={lang} onChange={(e) => setLanguage(e.target.value as typeof lang)} className="bg-transparent border-0 outline-none text-slate-700 text-xs cursor-pointer font-medium hover:text-sky-600">
                 <option value="ar">العربية</option>
                 <option value="en">English</option>
                 <option value="fr">Français</option>
@@ -85,13 +89,13 @@ export default function Navbar() {
               </select>
             </label>
             {user && profile?.role === 'vendor' && (
-              <Link to="/vendor" className="hidden sm:flex items-center gap-1 hover:text-sky-300 transition-colors">
-                <LayoutDashboard size={14} /> {t('nav.dashboard')}
+              <Link to="/vendor" className="hidden sm:flex items-center gap-1 text-slate-700 hover:text-sky-600 transition-colors font-medium">
+                <LayoutDashboard size={13} /> {t('nav.dashboard')}
               </Link>
             )}
             {user && profile?.role === 'admin' && (
-              <Link to="/admin" className="hidden sm:flex items-center gap-1 hover:text-sky-300 transition-colors">
-                <Shield size={14} /> {t('nav.admin')}
+              <Link to="/admin" className="hidden sm:flex items-center gap-1 text-slate-700 hover:text-sky-600 transition-colors font-medium">
+                <Shield size={13} /> {t('nav.admin')}
               </Link>
             )}
           </div>
@@ -104,17 +108,17 @@ export default function Navbar() {
           {/* Mobile menu button */}
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
-            className="lg:hidden text-gray-600"
+            className="lg:hidden text-slate-600 hover:text-slate-900"
           >
             {mobileOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
 
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 shrink-0">
-            <div className="w-9 h-9 bg-gradient-to-br from-sky-500 to-blue-600 rounded-lg flex items-center justify-center">
+          <Link to="/" className="flex items-center gap-2.5 shrink-0">
+            <div className="w-9 h-9 bg-sky-500 rounded-lg flex items-center justify-center text-white shadow-sm">
               <Store className="text-white" size={20} />
             </div>
-            <span className="text-xl font-bold text-gray-900 hidden sm:block">{t('brand.name')}</span>
+            <span className="text-xl font-bold text-slate-900 tracking-tight hidden sm:block">{t('brand.name')}</span>
           </Link>
 
           {/* Search */}
@@ -152,7 +156,7 @@ export default function Navbar() {
                       <p className="text-sm font-medium text-gray-900 truncate">{p.name}</p>
                       <p className="text-xs text-gray-500">{p.shop?.name}</p>
                     </div>
-                    <span className="text-sm font-bold text-sky-600">${p.price.toFixed(2)}</span>
+                    <span className="text-sm font-bold text-sky-600">{formatPriceSimple(p.price)}</span>
                   </Link>
                 ))}
               </div>

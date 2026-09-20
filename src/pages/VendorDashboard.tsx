@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
-import type { Shop, Product, Order, OrderItem, Category } from '@/lib/types';
+import type { Shop, Product, Order, Category } from '@/lib/types';
 import { formatPriceSimple, formatDate, classNames, slugify } from '@/lib/utils';
 
 type Tab = 'overview' | 'products' | 'orders' | 'analytics' | 'settings';
@@ -53,7 +53,7 @@ export default function VendorDashboard() {
           <h1 className="text-xl font-bold text-gray-900 mb-2">{t('vendor.notYet')}</h1>
           <p className="text-gray-500 text-sm mb-6">{t('vendor.registerPrompt')}</p>
           <Link to="/become-vendor" className="inline-block px-6 py-3 bg-sky-500 text-white font-medium rounded-lg hover:bg-sky-600">
-            Become a Seller
+            {t('nav.becomeVendor')}
           </Link>
         </div>
       </div>
@@ -98,17 +98,17 @@ export default function VendorDashboard() {
   ];
 
   return (
-    <div className="bg-gray-50 min-h-screen">
+    <div className="bg-white min-h-screen">
       <div className="max-w-7xl mx-auto px-4 py-6">
         {/* Shop header */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-5 mb-6">
+        <div className="bg-white rounded-2xl border border-gray-200 p-5 mb-6 shadow-sm">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-gradient-to-br from-sky-500 to-blue-600 rounded-xl flex items-center justify-center">
+              <div className="w-14 h-14 bg-sky-500 rounded-xl flex items-center justify-center shadow-sm">
                 <Store className="text-white" size={28} />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">{shop.name}</h1>
+                <h1 className="text-xl font-bold text-slate-900">{shop.name}</h1>
                 <div className="flex items-center gap-2 mt-0.5">
                   <span className={classNames(
                     'text-xs font-bold px-2 py-0.5 rounded-full',
@@ -134,7 +134,7 @@ export default function VendorDashboard() {
                 onClick={() => setTab(tb.id)}
                 className={classNames(
                   'flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-all whitespace-nowrap',
-                  tab === tb.id ? 'border-sky-500 text-sky-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+                  tab === tb.id ? 'border-sky-500 text-sky-600' : 'border-transparent text-slate-500 hover:text-slate-700'
                 )}
               >
                 <Icon size={18} /> {tb.label}
@@ -166,15 +166,15 @@ function OverviewTab({ shopId }: { shopId: string }) {
         supabase.from('order_items').select('order:orders(*), price, quantity').eq('shop_id', shopId).order('created_at', { ascending: false }).limit(5),
       ]);
 
-      const products = prodRes.data ?? [];
+      const products = (prodRes.data as { id: string; variations?: { stock: number }[] }[]) ?? [];
       let lowStock = 0;
-      products.forEach((p: any) => {
+      products.forEach((p) => {
         if (p.variations && p.variations.length > 0) {
-          p.variations.forEach((v: any) => { if (v.stock < 10) lowStock++; });
+          p.variations.forEach((v) => { if (v.stock < 10) lowStock++; });
         }
       });
 
-      const orderItems = (ordersRes.data as any[]) ?? [];
+      const orderItems = (ordersRes.data as { order: Order; price: number; quantity: number }[]) ?? [];
       const revenue = orderItems.reduce((sum, oi) => sum + oi.price * oi.quantity, 0);
 
       setStats({
@@ -183,7 +183,7 @@ function OverviewTab({ shopId }: { shopId: string }) {
         revenue,
         lowStock,
       });
-      setRecentOrders(orderItems.map((oi) => oi.order as Order));
+      setRecentOrders(orderItems.map((oi) => oi.order).filter(Boolean));
       setLoading(false);
     }
     load();
@@ -192,10 +192,10 @@ function OverviewTab({ shopId }: { shopId: string }) {
   if (loading) return <div className="py-20 text-center text-gray-400">{t('common.loading')}</div>;
 
   const cards = [
-    { label: 'Total Products', value: stats.products, icon: Package, color: 'sky' },
-    { label: 'Total Orders', value: stats.orders, icon: ShoppingBag, color: 'emerald' },
-    { label: 'Revenue', value: formatPriceSimple(stats.revenue), icon: DollarSign, color: 'amber' },
-    { label: 'Low Stock Items', value: stats.lowStock, icon: AlertCircle, color: 'rose' },
+    { label: t('vendor.totalProducts'), value: stats.products, icon: Package, color: 'sky' },
+    { label: t('vendor.totalOrders'), value: stats.orders, icon: ShoppingBag, color: 'emerald' },
+    { label: t('vendor.totalRevenue'), value: formatPriceSimple(stats.revenue), icon: DollarSign, color: 'amber' },
+    { label: t('vendor.lowStock'), value: stats.lowStock, icon: AlertCircle, color: 'rose' },
   ];
 
   return (
@@ -226,7 +226,7 @@ function OverviewTab({ shopId }: { shopId: string }) {
             {recentOrders.map((o) => (
               <div key={o.id} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
                 <div>
-                  <p className="text-sm font-medium text-gray-900">Order #{o.id.slice(0, 8)}</p>
+                  <p className="text-sm font-medium text-gray-900">{t('orders.orderNumber', { id: o.id.slice(0, 8) })}</p>
                   <p className="text-xs text-gray-500">{formatDate(o.created_at)} - {o.customer_name}</p>
                 </div>
                 <div className="text-end">
@@ -273,7 +273,7 @@ function ProductsTab({ shopId }: { shopId: string }) {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold text-gray-900">Products ({products.length})</h2>
+        <h2 className="text-lg font-bold text-gray-900">{t('vendor.products')} ({products.length})</h2>
         <button
           onClick={() => { setEditingProduct(null); setShowModal(true); }}
           className="flex items-center gap-2 px-4 h-10 bg-sky-500 text-white text-sm font-medium rounded-lg hover:bg-sky-600"
@@ -393,7 +393,7 @@ function ProductModal({ shopId, categories, product, onClose, onSaved }: {
     }
     try {
       const slug = slugify(name) + '-' + Date.now().toString(36);
-      const productData: any = {
+      const productData: Record<string, unknown> = {
         shop_id: shopId,
         category_id: categoryId || null,
         name,
@@ -455,7 +455,7 @@ function ProductModal({ shopId, categories, product, onClose, onSaved }: {
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-gray-900">{product ? 'Edit Product' : 'Add Product'}</h2>
+          <h2 className="text-lg font-bold text-gray-900">{product ? t('vendor.editProduct') : t('vendor.addProduct')}</h2>
           <button onClick={onClose}><X size={22} /></button>
         </div>
 
@@ -468,7 +468,7 @@ function ProductModal({ shopId, categories, product, onClose, onSaved }: {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Description</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('common.description')}</label>
             <textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-sky-400 resize-none" />
           </div>
 
@@ -485,7 +485,7 @@ function ProductModal({ shopId, categories, product, onClose, onSaved }: {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Brand</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('common.brand')}</label>
               <input type="text" value={brand} onChange={(e) => setBrand(e.target.value)} className="w-full h-11 px-3 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-sky-400" />
             </div>
             <div>
@@ -502,12 +502,24 @@ function ProductModal({ shopId, categories, product, onClose, onSaved }: {
             <input type="text" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} className="w-full h-11 px-3 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-sky-400" placeholder="https://..." />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('vendor.status')}</label>
-            <select value={status} onChange={(e) => setStatus(e.target.value as 'active' | 'draft')} className="w-full h-11 px-3 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-sky-400">
-              <option value="active">{t('common.active')}</option>
-              <option value="draft">{t('vendor.draft')}</option>
-            </select>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('vendor.stock')}</label>
+              <input
+                type="number"
+                min="0"
+                value={inventoryStock}
+                onChange={(e) => setInventoryStock(e.target.value)}
+                className="w-full h-11 px-3 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-sky-400"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('vendor.status')}</label>
+              <select value={status} onChange={(e) => setStatus(e.target.value as 'active' | 'draft')} className="w-full h-11 px-3 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-sky-400">
+                <option value="active">{t('common.active')}</option>
+                <option value="draft">{t('vendor.draft')}</option>
+              </select>
+            </div>
           </div>
 
           {/* Variations */}
@@ -558,8 +570,8 @@ function OrdersTab({ shopId }: { shopId: string }) {
         .eq('shop_id', shopId)
         .order('created_at', { ascending: false });
       const orderMap = new Map<string, Order>();
-      ((data as any[]) ?? []).forEach((oi) => {
-        const o = oi.order as Order;
+      ((data as { order: Order }[]) ?? []).forEach((oi) => {
+        const o = oi.order;
         if (o && !orderMap.has(o.id)) orderMap.set(o.id, o);
       });
       setOrders(Array.from(orderMap.values()));
@@ -625,7 +637,7 @@ function AnalyticsTab({ shopId }: { shopId: string }) {
         supabase.from('order_items').select('price, quantity, order:orders(status)').eq('shop_id', shopId),
       ]);
       const products = prodRes.data ?? [];
-      const items = (itemsRes.data as any[]) ?? [];
+      const items = (itemsRes.data as { price: number; quantity: number }[]) ?? [];
       const revenue = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
       setStats({
         totalProducts: products.length,

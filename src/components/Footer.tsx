@@ -11,13 +11,13 @@ export default function Footer() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
           <div>
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-9 h-9 bg-gradient-to-br from-sky-500 to-blue-600 rounded-lg flex items-center justify-center">
+              <div className="w-9 h-9 bg-sky-500 rounded-lg flex items-center justify-center">
                 <Store className="text-white" size={20} />
               </div>
               <span className="text-xl font-bold text-white">{t('brand.name')}</span>
             </div>
             <p className="text-sm text-gray-400 leading-relaxed">
-              Your one-stop marketplace for everything. Shop from thousands of vendors worldwide.
+              {t('footer.aboutText')}
             </p>
           </div>
 
@@ -61,7 +61,7 @@ export default function Footer() {
         </div>
 
         <div className="border-t border-slate-800 mt-10 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-sm text-gray-400"> 2026 ShopVerse. All rights reserved.</p>
+          <p className="text-sm text-gray-400">{t('footer.copyright', { year: new Date().getFullYear(), brand: t('brand.name') })}</p>
           <div className="flex gap-6 text-sm text-gray-400">
             <Link to="/privacy" className="hover:text-sky-400 transition-colors">{t('footer.privacy')}</Link>
             <Link to="/terms" className="hover:text-sky-400 transition-colors">{t('footer.terms')}</Link>
