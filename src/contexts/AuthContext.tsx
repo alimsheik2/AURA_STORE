@@ -202,10 +202,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      const { data, error } = await supabase.auth.verifyOtp({ email: cleanEmail, token: cleanToken, type: 'signup' });
+      // 1. Try custom OTP edge function verification
+      const edgeRes = await callOtp('verify', { email: cleanEmail, purpose: 'signup', token: cleanToken, type: 'signup' });
+      if (!edgeRes.error) {
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (sessionData?.session?.user) await loadProfile(sessionData.session.user.id);
+        return { error: null };
+      }
+
+      // 2. Supabase native Auth verification with explicit type: 'signup'
+      const { data, error } = await supabase.auth.verifyOtp({
+        email: cleanEmail,
+        token: cleanToken,
+        type: 'signup',
+      });
+
       if (error) {
-        // Fallback to type 'email' if signup verification returned 422
-        const emailAttempt = await supabase.auth.verifyOtp({ email: cleanEmail, token: cleanToken, type: 'email' });
+        // Fallback to type 'email' if signup type returned error
+        const emailAttempt = await supabase.auth.verifyOtp({
+          email: cleanEmail,
+          token: cleanToken,
+          type: 'email',
+        });
         if (!emailAttempt.error) {
           if (emailAttempt.data?.user) await loadProfile(emailAttempt.data.user.id);
           return { error: null };
