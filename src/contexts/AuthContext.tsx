@@ -11,7 +11,7 @@ interface AuthContextValue {
   verifyLoginOtp: (email: string, token: string) => Promise<{ error: string | null }>;
   finishPasswordSignIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signUp: (email: string, password: string, fullName: string, role?: UserRole, phone?: string, countryCode?: string, turnstileToken?: string) => Promise<{ error: string | null; needsOtp?: boolean }>;
-  verifySignupOtp: (email: string, token: string) => Promise<{ error: string | null }>;
+  verifySignupOtp: (email: string, token: string) => Promise<{ error: string | null; user?: import('@supabase/supabase-js').User | null }>;
   resendSignupOtp: (email: string, turnstileToken?: string) => Promise<{ error: string | null }>;
   submitVendorKyc: (args: { legalName: string; phone: string; countryCode: string; document: File; documentType: string }) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
@@ -196,9 +196,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (cleanToken === '000000') {
         const { data: sessionData } = await supabase.auth.getSession();
-        if (sessionData?.session?.user) {
-          await loadProfile(sessionData.session.user.id);
-          return { error: null };
+        let u = sessionData?.session?.user ?? user;
+        if (!u) u = (await supabase.auth.getUser()).data.user;
+        if (u) {
+          await loadProfile(u.id);
+          return { error: null, user: u };
         }
       }
 
@@ -206,8 +208,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const edgeRes = await callOtp('verify', { email: cleanEmail, purpose: 'signup', token: cleanToken, type: 'signup' });
       if (!edgeRes.error) {
         const { data: sessionData } = await supabase.auth.getSession();
-        if (sessionData?.session?.user) await loadProfile(sessionData.session.user.id);
-        return { error: null };
+        let u = sessionData?.session?.user ?? user;
+        if (!u) u = (await supabase.auth.getUser()).data.user;
+        if (u) await loadProfile(u.id);
+        return { error: null, user: u };
       }
 
       // 2. Supabase native Auth verification with explicit type: 'signup'
@@ -225,16 +229,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           type: 'email',
         });
         if (!emailAttempt.error) {
-          if (emailAttempt.data?.user) await loadProfile(emailAttempt.data.user.id);
-          return { error: null };
+          const u = emailAttempt.data?.user ?? (await supabase.auth.getUser()).data.user;
+          if (u) await loadProfile(u.id);
+          return { error: null, user: u };
         }
-        if (cleanToken === '000000') return { error: null };
-        return { error: error.message };
+        if (cleanToken === '000000') {
+          const u = (await supabase.auth.getUser()).data.user ?? user;
+          return { error: null, user: u };
+        }
+        return { error: error.message, user: null };
       }
-      if (data?.user) await loadProfile(data.user.id);
-      return { error: null };
+
+      const verifiedUser = data?.user ?? (await supabase.auth.getUser()).data.user ?? user;
+      if (verifiedUser) await loadProfile(verifiedUser.id);
+      return { error: null, user: verifiedUser };
     } catch (err) {
-      return { error: err instanceof Error ? err.message : 'Verification failed' };
+      return { error: err instanceof Error ? err.message : 'Verification failed', user: null };
     }
   };
 

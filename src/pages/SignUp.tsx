@@ -95,11 +95,16 @@ export default function SignUp() {
       return;
     }
 
-    // Get current user after OTP verification
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    // Get verified user object directly from result or session/context
+    const currentUser = r.user || (await supabase.auth.getUser()).data.user;
+    if (!currentUser) {
+      if (role === 'customer') {
+        setLoading(false);
+        navigate('/');
+        return;
+      }
       setLoading(false);
-      setError('User not found after OTP verification');
+      setError('Session could not be resolved automatically. Please sign in to complete registration.');
       return;
     }
 
@@ -113,7 +118,7 @@ export default function SignUp() {
         // Create shop record with unique slug
         const slug = `${slugify(legalName)}-${Date.now().toString(36)}`;
         const { error: shopError } = await supabase.from('shops').insert({
-          owner_id: user.id,
+          owner_id: currentUser.id,
           name: legalName,
           slug,
           description: '',
@@ -122,7 +127,7 @@ export default function SignUp() {
         if (shopError) throw shopError;
 
         // Upgrade profile role to vendor
-        const { error: roleError } = await supabase.from('profiles').update({ role: 'vendor' }).eq('id', user.id);
+        const { error: roleError } = await supabase.from('profiles').update({ role: 'vendor' }).eq('id', currentUser.id);
         if (roleError) throw roleError;
 
         // Submit KYC document
