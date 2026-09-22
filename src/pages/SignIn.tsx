@@ -1,6 +1,7 @@
 import { useI18n } from '@/contexts/I18nContext';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { Turnstile } from '@marsidev/react-turnstile';
 import { Store, Mail, Lock, Loader2, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -15,6 +16,7 @@ export default function SignIn() {
   const [loading, setLoading] = useState(false);
   const [otpMode, setOtpMode] = useState(false);
   const [pendingPassword, setPendingPassword] = useState('');
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,7 +33,7 @@ export default function SignIn() {
     }
 
     setLoading(true);
-    const r = await signIn(cleanEmail, password);
+    const r = await signIn(cleanEmail, password, turnstileToken ?? undefined);
     setLoading(false);
     if (r.error) {
       setError(r.error);
@@ -156,6 +158,17 @@ export default function SignIn() {
                 />
               </div>
             </div>
+
+            {import.meta.env.VITE_TURNSTILE_SITE_KEY && (
+              <div className="flex justify-center my-2">
+                <Turnstile
+                  siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
+                  onSuccess={(token: string) => setTurnstileToken(token)}
+                  onError={() => setTurnstileToken(null)}
+                  onExpire={() => setTurnstileToken(null)}
+                />
+              </div>
+            )}
 
             <button
               type="submit"

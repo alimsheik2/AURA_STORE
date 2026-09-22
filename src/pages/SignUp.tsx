@@ -1,14 +1,18 @@
 import { useI18n } from '@/contexts/I18nContext';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { Turnstile } from '@marsidev/react-turnstile';
 import { Link, useNavigate } from 'react-router-dom';
-import { Store, Loader2, ShoppingBag, Truck, FileUp } from 'lucide-react';
+import { countryOptions } from '@/constants/countries';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
+
 import type { UserRole } from '@/lib/types';
-import { classNames } from '@/lib/utils';
+import { slugify, classNames } from '@/lib/utils';
+import { Loader2, Store, ShoppingBag, Truck, FileUp } from 'lucide-react';
 
 export default function SignUp() {
   const { t } = useI18n();
-  const { signUp, verifySignupOtp, submitVendorKyc } = useAuth();
+  const { signUp, verifySignupOtp, resendSignupOtp, submitVendorKyc } = useAuth();
   const navigate = useNavigate();
 
   const [fullName, setFullName] = useState('');
@@ -18,13 +22,21 @@ export default function SignUp() {
   const [countryCode, setCountryCode] = useState('IQ');
   const [role, setRole] = useState<UserRole>('customer');
   const [document, setDocument] = useState<File | null>(null);
-  const [legalName, setLegalName] = useState('');
   const [documentType, setDocumentType] = useState('identity');
+  const [legalName, setLegalName] = useState('');
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [otpMode, setOtpMode] = useState(false);
   const [otp, setOtp] = useState('');
+  const [resendTimer, setResendTimer] = useState(0);
+  useEffect(() => {
+    if (resendTimer > 0) {
+      const id = setTimeout(() => setResendTimer(resendTimer - 1), 1000);
+      return () => clearTimeout(id);
+    }
+  }, [resendTimer]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,7 +59,7 @@ export default function SignUp() {
     }
 
     setLoading(true);
-    const r = await signUp(cleanEmail, password, cleanName, role, phone, countryCode);
+    const r = await signUp(cleanEmail, password, cleanName, role, phone, countryCode, turnstileToken ?? undefined);
     if (r.error) {
       setLoading(false);
       setError(r.error);
@@ -83,19 +95,47 @@ export default function SignUp() {
       return;
     }
 
+    // Get current user after OTP verification
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setLoading(false);
+      setError('User not found after OTP verification');
+      return;
+    }
+
     if (role === 'vendor') {
       if (!document) {
         setLoading(false);
         setError('Document is required');
         return;
       }
-      const k = await submitVendorKyc({ legalName, phone, countryCode, document, documentType });
-      setLoading(false);
-      if (k.error) {
-        setError(k.error);
+      try {
+        // Create shop record with unique slug
+        const slug = `${slugify(legalName)}-${Date.now().toString(36)}`;
+        const { error: shopError } = await supabase.from('shops').insert({
+          owner_id: user.id,
+          name: legalName,
+          slug,
+          description: '',
+          status: 'pending',
+        });
+        if (shopError) throw shopError;
+
+        // Upgrade profile role to vendor
+        const { error: roleError } = await supabase.from('profiles').update({ role: 'vendor' }).eq('id', user.id);
+        if (roleError) throw roleError;
+
+        // Submit KYC document
+        const kycRes = await submitVendorKyc({ legalName, phone, countryCode, document, documentType });
+        if (kycRes.error) throw new Error(kycRes.error);
+
+        setLoading(false);
+        navigate('/vendor');
+      } catch (err) {
+        setLoading(false);
+        setError(err instanceof Error ? err.message : 'Vendor registration failed');
         return;
       }
-      navigate('/vendor');
     } else {
       setLoading(false);
       navigate('/');
@@ -133,6 +173,32 @@ export default function SignUp() {
               {loading && <Loader2 size={18} className="animate-spin" />}
               {t('auth.verify')}
             </button>
+            {/* Resend OTP button with countdown */}
+            <div className="mt-2 text-center">
+              {resendTimer > 0 ? (
+                <span className="text-sm text-gray-600">
+                  {t('auth.resendIn', { seconds: resendTimer })}
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  disabled={loading}
+                  className="text-sm text-sky-600 hover:underline"
+                  onClick={async () => {
+                    setLoading(true);
+                    const res = await resendSignupOtp(email);
+                    setLoading(false);
+                    if (res.error) {
+                      setError(res.error);
+                    } else {
+                      setResendTimer(60);
+                    }
+                  }}
+                >
+                  {t('auth.resend')}
+                </button>
+              )}
+            </div>
           </form>
         </div>
       </div>
@@ -223,20 +289,17 @@ export default function SignUp() {
                   className="w-full h-11 px-3 rounded-lg border border-gray-300 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 text-slate-900"
                   placeholder={t('auth.phone')}
                 />
-                <select
-                  value={countryCode}
-                  onChange={(e) => setCountryCode(e.target.value)}
-                  className="w-full h-11 px-3 rounded-lg border border-gray-300 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 text-slate-900 bg-white"
-                >
-                  <option value="IQ">{t('country.iq')}</option>
-                  <option value="SA">{t('country.sa')}</option>
-                  <option value="AE">{t('country.ae')}</option>
-                  <option value="JO">{t('country.jo')}</option>
-                  <option value="KW">{t('country.kw')}</option>
-                  <option value="QA">{t('country.qa')}</option>
-                  <option value="LB">{t('country.lb')}</option>
-                  <option value="EG">{t('country.eg')}</option>
-                </select>
+                  <select
+                    value={countryCode}
+                    onChange={(e) => setCountryCode(e.target.value)}
+                    className="w-full h-11 px-3 rounded-lg border border-gray-300 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 text-slate-900 bg-white"
+                  >
+                    {countryOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {t(`country.${opt.value.toLowerCase()}`)}
+                      </option>
+                    ))}
+                  </select>
                 <select
                   value={documentType}
                   onChange={(e) => setDocumentType(e.target.value)}
@@ -257,6 +320,16 @@ export default function SignUp() {
                   />
                 </label>
               </>
+            )}
+            {import.meta.env.VITE_TURNSTILE_SITE_KEY && (
+              <div className="flex justify-center my-2">
+                <Turnstile
+                  siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
+                  onSuccess={(token: string) => setTurnstileToken(token)}
+                  onError={() => setTurnstileToken(null)}
+                  onExpire={() => setTurnstileToken(null)}
+                />
+              </div>
             )}
             <button
               type="submit"

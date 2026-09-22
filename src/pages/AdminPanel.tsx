@@ -20,8 +20,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import type { Order, Category, Shop } from '@/lib/types';
 import { formatPriceSimple, formatDate, classNames, slugify } from '@/lib/utils';
+import AdminRevenue from '@/pages/AdminRevenue';
+import AdminCommission from '@/pages/AdminCommission';
+import AdminShipping from '@/pages/AdminShipping';
 
-type Tab = 'overview' | 'vendors' | 'orders' | 'categories' | 'settings' | 'finance' | 'audit';
+type Tab = 'overview' | 'vendors' | 'orders' | 'categories' | 'settings' | 'finance' | 'revenue' | 'commission' | 'shipping' | 'audit';
 
 interface PlatformSettings {
   default_commission_rate: number;
@@ -96,7 +99,10 @@ export default function AdminPanel() {
     ['overview', t('admin.overview'), Shield],
     ['vendors', t('admin.vendorKyc'), FileCheck],
     ['orders', t('admin.orders'), ShoppingBag],
-    ['categories', t('admin.categoriesCommission'), Layers],
+    ['revenue', 'Revenue & Analytics', DollarSign],
+    ['commission', 'Commission Rates', Layers],
+    ['shipping', 'Shipping Methods', Package],
+    ['categories', t('admin.categoriesCommission'), Store],
     ['finance', t('admin.finance'), DollarSign],
     ['audit', t('admin.audit'), Bell],
     ['settings', t('admin.platformSettings'), Settings],
@@ -134,6 +140,9 @@ export default function AdminPanel() {
         {tab === 'overview' && <Overview />}
         {tab === 'vendors' && <Vendors />}
         {tab === 'orders' && <Orders />}
+        {tab === 'revenue' && <AdminRevenue />}
+        {tab === 'commission' && <AdminCommission />}
+        {tab === 'shipping' && <AdminShipping />}
         {tab === 'categories' && <Categories />}
         {tab === 'settings' && <SettingsTab />}
         {tab === 'finance' && <FinanceTab />}

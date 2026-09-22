@@ -5,11 +5,56 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useI18n } from '@/contexts/I18nContext';
 import { formatPriceSimple } from '@/lib/utils';
 
+import { useState } from 'react';
+import { supabase } from '@/lib/supabase';
+
 export default function Cart() {
   const { items, loading, updateQuantity, removeItem, subtotal, itemCount } = useCart();
   const { user } = useAuth();
   const { t } = useI18n();
   const navigate = useNavigate();
+
+  const [couponCode, setCouponCode] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState('');
+  const [discount, setDiscount] = useState(0);
+  const [couponError, setCouponError] = useState<string | null>(null);
+
+  const applyCoupon = async () => {
+    setCouponError(null);
+    if (!couponCode.trim()) return;
+
+    const { data, error } = await supabase
+      .from('coupons')
+      .select('*')
+      .eq('code', couponCode.trim().toUpperCase())
+      .eq('active', true)
+      .maybeSingle();
+
+    if (error || !data) {
+      setCouponError('Invalid or expired coupon code.');
+      setDiscount(0);
+      setAppliedCoupon('');
+      return;
+    }
+
+    if (subtotal < Number(data.min_spend || 0)) {
+      setCouponError(`Minimum spend of $${data.min_spend} required for this coupon.`);
+      setDiscount(0);
+      setAppliedCoupon('');
+      return;
+    }
+
+    let calcDiscount = 0;
+    if (data.discount_type === 'percentage') {
+      calcDiscount = (subtotal * Number(data.discount_value)) / 100;
+    } else {
+      calcDiscount = Number(data.discount_value);
+    }
+
+    setDiscount(Math.min(subtotal, calcDiscount));
+    setAppliedCoupon(data.code);
+    setCouponError(null);
+  };
 
   if (loading) {
     return (
@@ -135,23 +180,53 @@ export default function Cart() {
           <div className="lg:col-span-1">
             <div className="bg-white rounded-xl border border-gray-200 p-5 sticky top-32">
               <h2 className="text-lg font-bold text-gray-900 mb-4">{t('cart.summary')}</h2>
+              {/* Coupon Code Section */}
+              <div className="my-4 pt-3 border-t border-gray-100">
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Have a Promo Coupon?</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={couponCode}
+                    onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                    placeholder="e.g. WELCOME10"
+                    className="flex-1 h-9 px-3 border border-gray-300 rounded-lg text-xs uppercase focus:outline-none focus:border-sky-500"
+                  />
+                  <button
+                    onClick={applyCoupon}
+                    className="h-9 px-3 bg-slate-800 text-white text-xs font-medium rounded-lg hover:bg-slate-900 transition-colors"
+                  >
+                    Apply
+                  </button>
+                </div>
+                {couponError && <p className="text-xs text-rose-500 mt-1">{couponError}</p>}
+                {discount > 0 && <p className="text-xs text-emerald-600 mt-1 font-semibold">Applied coupon {appliedCoupon}: -{formatPriceSimple(discount)}</p>}
+              </div>
+
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between text-gray-600">
                   <span>{t('common.subtotal')} ({itemCount} {t('common.items')})</span>
                   <span>{formatPriceSimple(subtotal)}</span>
                 </div>
+                {discount > 0 && (
+                  <div className="flex justify-between text-emerald-600 font-medium">
+                    <span>Coupon Discount</span>
+                    <span>-{formatPriceSimple(discount)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-gray-600">
-                  <span>{t('cart.shipping')}</span>
-                  <span className="text-emerald-600 font-medium">{t('cart.free')}</span>
+                  <span>Standard Shipping</span>
+                  <span className="text-slate-900 font-medium">{formatPriceSimple(5.00)}</span>
                 </div>
                 <div className="flex justify-between text-gray-600">
                   <span>{t('cart.estimatedTax')}</span>
-                  <span>{formatPriceSimple(subtotal * 0.08)}</span>
+                  <span>{formatPriceSimple((subtotal - discount) * 0.08)}</span>
                 </div>
               </div>
               <div className="border-t border-gray-100 mt-4 pt-4 flex justify-between items-baseline">
                 <span className="text-lg font-bold text-gray-900">{t('common.total')}</span>
-                <span className="text-2xl font-bold text-sky-600">{formatPriceSimple(subtotal + subtotal * 0.08)}</span>
+                <span className="text-2xl font-bold text-sky-600">
+                  {formatPriceSimple(Math.max(0, subtotal - discount + 5.00 + (subtotal - discount) * 0.08))}
+                </span>
               </div>
               <button
                 onClick={() => navigate('/checkout')}

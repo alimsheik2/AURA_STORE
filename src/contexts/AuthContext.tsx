@@ -10,12 +10,22 @@ interface AuthContextValue {
   sendLoginOtp: (email: string, turnstileToken?: string) => Promise<{ error: string | null }>;
   verifyLoginOtp: (email: string, token: string) => Promise<{ error: string | null }>;
   finishPasswordSignIn: (email: string, password: string) => Promise<{ error: string | null }>;
-  signUp: (email: string, password: string, fullName: string, role?: UserRole, phone?: string, countryCode?: string) => Promise<{ error: string | null; needsOtp?: boolean }>;
+  signUp: (email: string, password: string, fullName: string, role?: UserRole, phone?: string, countryCode?: string, turnstileToken?: string) => Promise<{ error: string | null; needsOtp?: boolean }>;
   verifySignupOtp: (email: string, token: string) => Promise<{ error: string | null }>;
-  submitVendorKyc: (input: { legalName: string; phone: string; countryCode: string; document: File; documentType: string }) => Promise<{ error: string | null }>;
+  resendSignupOtp: (email: string, turnstileToken?: string) => Promise<{ error: string | null }>;
+  submitVendorKyc: (args: { legalName: string; phone: string; countryCode: string; document: File; documentType: string }) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
+
+
+
+
+
+
+
+
+
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 async function callOtp(action: 'send' | 'verify', payload: Record<string, unknown>) {
@@ -118,12 +128,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signUp: AuthContextValue['signUp'] = async (email, password, fullName, role = 'customer', phone = '', countryCode = '') => {
+  const signUp: AuthContextValue['signUp'] = async (email, password, fullName, role = 'customer', phone = '', countryCode = '', turnstileToken?: string) => {
     try {
       const cleanEmail = email.trim().toLowerCase();
       const cleanName = fullName.trim();
       const cleanCountry = (countryCode || 'US').toUpperCase();
       const cleanPhone = phone.trim();
+
+      // Verify Turnstile token if provided
+      if (turnstileToken) {
+        const verifyRes = await supabase.functions.invoke('turnstile-verify', {
+          body: { token: turnstileToken },
+        });
+        if (verifyRes.error) return { error: 'Turnstile verification failed' };
+        const { success } = verifyRes.data as { success: boolean };
+        if (!success) return { error: 'Turnstile verification failed' };
+      }
 
       const { data, error } = await supabase.auth.signUp({
         email: cleanEmail,
@@ -200,6 +220,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const resendSignupOtp = async (email: string, turnstileToken?: string) => {
+    return await callOtp('send', { email: email.trim().toLowerCase(), purpose: 'signup', turnstile_token: turnstileToken });
+  };
+
   const submitVendorKyc: AuthContextValue['submitVendorKyc'] = async ({ legalName, phone, countryCode, document, documentType }) => {
     const currentUser = user ?? (await supabase.auth.getUser()).data.user;
     if (!currentUser) return { error: 'Authentication required' };
@@ -214,6 +238,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => { await supabase.auth.signOut(); setUser(null); setProfile(null); };
   const refreshProfile = async () => { if (user) await loadProfile(user.id); };
-  return <AuthContext.Provider value={{ user, profile, loading, signIn, sendLoginOtp, verifyLoginOtp, signUp, verifySignupOtp, submitVendorKyc, signOut, refreshProfile, finishPasswordSignIn } as AuthContextValue & { finishPasswordSignIn: (email: string, password: string) => Promise<{error:string|null}> }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{
+    user,
+    profile,
+    loading,
+    signIn,
+    sendLoginOtp,
+    verifyLoginOtp,
+    signUp,
+    verifySignupOtp,
+    resendSignupOtp,
+    submitVendorKyc,
+    signOut,
+    refreshProfile,
+    finishPasswordSignIn
+  } as AuthContextValue & { finishPasswordSignIn: (email: string, password: string) => Promise<{error:string|null}> }}>
+    {children}
+  </AuthContext.Provider>;
 }
 export function useAuth() { const c = useContext(AuthContext); if (!c) throw new Error('useAuth must be used within AuthProvider'); return c; }

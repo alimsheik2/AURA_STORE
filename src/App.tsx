@@ -20,6 +20,13 @@ import SignUp from '@/pages/SignUp';
 import BecomeVendor from '@/pages/BecomeVendor';
 import VendorDashboard from '@/pages/VendorDashboard';
 import AdminPanel from '@/pages/AdminPanel';
+import AdminRevenue from '@/pages/AdminRevenue';
+import AdminCommission from '@/pages/AdminCommission';
+import AdminShipping from '@/pages/AdminShipping';
+import Wishlist from '@/pages/Wishlist';
+import PublicStorefront from '@/pages/PublicStorefront';
+import Disputes from '@/pages/Disputes';
+import Profile from '@/pages/Profile';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -61,11 +68,18 @@ function Layout() {
           <Route path="/checkout" element={<RequireAuth><Checkout /></RequireAuth>} />
           <Route path="/order-confirmed/:id" element={<OrderConfirmed />} />
           <Route path="/orders" element={<RequireAuth><Orders /></RequireAuth>} />
+          <Route path="/wishlist" element={<RequireAuth><Wishlist /></RequireAuth>} />
+          <Route path="/store/:slug" element={<PublicStorefront />} />
+          <Route path="/disputes" element={<RequireAuth><Disputes /></RequireAuth>} />
+          <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
           <Route path="/signin" element={<SignIn />} />
           <Route path="/signup" element={<SignUp />} />
           <Route path="/become-vendor" element={<BecomeVendor />} />
           <Route path="/vendor" element={<RequireRole role="vendor"><VendorDashboard /></RequireRole>} />
           <Route path="/admin" element={<RequireRole role="admin"><AdminPanel /></RequireRole>} />
+          <Route path="/admin/revenue" element={<RequireRole role="admin"><AdminRevenue /></RequireRole>} />
+          <Route path="/admin/commission" element={<RequireRole role="admin"><AdminCommission /></RequireRole>} />
+          <Route path="/admin/shipping" element={<RequireRole role="admin"><AdminShipping /></RequireRole>} />
         </Routes>
       </main>
       {!isAuthPage && <Footer />}

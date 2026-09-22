@@ -170,7 +170,7 @@ export default function ProductDetail() {
             {/* Info */}
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <Link to={`/search?vendor=${product.shop?.slug}`} className="inline-flex items-center gap-1.5 text-sm text-sky-600 hover:text-sky-700 font-medium">
+                <Link to={`/store/${product.shop?.slug}`} className="inline-flex items-center gap-1.5 text-sm text-sky-600 hover:text-sky-700 font-medium">
                   <Store size={16} /> {product.shop?.name}
                 </Link>
                 {product.brand && (

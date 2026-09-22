@@ -1,7 +1,10 @@
 import { Link } from 'react-router-dom';
-import { ShoppingBag } from 'lucide-react';
+import { ShoppingBag, Heart } from 'lucide-react';
 import type { Product } from '@/lib/types';
 import { formatPriceSimple, discountPercent, classNames } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
+import { useState } from 'react';
 import StarRating from './StarRating';
 
 interface ProductCardProps {
@@ -10,8 +13,23 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ product, className }: ProductCardProps) {
+  const { user } = useAuth();
+  const [isSaved, setIsSaved] = useState(false);
   const image = product.images?.[0]?.url ?? '';
   const discount = discountPercent(product.price, product.compare_price);
+
+  const toggleWishlist = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!user) return;
+    if (isSaved) {
+      await supabase.from('wishlists').delete().eq('user_id', user.id).eq('product_id', product.id);
+      setIsSaved(false);
+    } else {
+      await supabase.from('wishlists').insert({ user_id: user.id, product_id: product.id });
+      setIsSaved(true);
+    }
+  };
 
   return (
     <Link
@@ -39,6 +57,13 @@ export default function ProductCard({ product, className }: ProductCardProps) {
             -{discount}%
           </span>
         )}
+        <button
+          onClick={toggleWishlist}
+          title="Save to Wishlist"
+          className="absolute top-2 end-2 p-2 bg-white/80 backdrop-blur-sm rounded-full text-slate-600 hover:text-rose-500 hover:bg-white transition-colors shadow-sm"
+        >
+          <Heart size={16} className={isSaved ? 'text-rose-500 fill-rose-500' : ''} />
+        </button>
       </div>
 
       <div className="p-3 flex flex-col flex-1">

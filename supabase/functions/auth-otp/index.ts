@@ -8,7 +8,13 @@ const sha256 = async (value: string) => {
   const digest = await crypto.subtle.digest('SHA-256', bytes);
   return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
 };
-const makeCode = () => Math.floor(100000 + Math.random() * 900000).toString();
+const makeCode = () => {
+  const array = new Uint32Array(1);
+  crypto.getRandomValues(array);
+  // Ensure a 6‑digit number (100000‑999999)
+  const code = (array[0] % 900000) + 100000;
+  return code.toString();
+};
 
 Deno.serve(async req => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });

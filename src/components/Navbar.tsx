@@ -2,7 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useState, useRef, useEffect } from 'react';
 import {
   Search, ShoppingCart, User, Menu, X, Store, LayoutDashboard,
-  Shield, LogOut, Package, Globe, ChevronDown
+  Shield, LogOut, Package, Globe, ChevronDown, Heart, AlertCircle
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
@@ -192,8 +192,17 @@ export default function Navbar() {
                       <p className="text-xs text-gray-500">{user.email}</p>
                     </div>
                     <div className="py-1">
+                      <Link to="/profile" onClick={() => setUserMenuOpen(false)} className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                        <User size={16} /> My Account
+                      </Link>
                       <Link to="/orders" onClick={() => setUserMenuOpen(false)} className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
                         <Package size={16} /> {t('nav.orders')}
+                      </Link>
+                      <Link to="/wishlist" onClick={() => setUserMenuOpen(false)} className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                        <Heart size={16} className="text-rose-500" /> My Wishlist
+                      </Link>
+                      <Link to="/disputes" onClick={() => setUserMenuOpen(false)} className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                        <AlertCircle size={16} className="text-amber-500" /> Disputes & Returns
                       </Link>
                       {profile?.role === 'vendor' && (
                         <Link to="/vendor" onClick={() => setUserMenuOpen(false)} className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
