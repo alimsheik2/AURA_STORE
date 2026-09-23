@@ -14,16 +14,15 @@ This build hardens the marketplace for real deployment while keeping provider cr
 - Tax, shipping and FX tables ready for admin configuration.
 - COD enabled by default; Stripe/PayPal UI is disabled until explicitly enabled in platform settings and provider credentials/webhooks are configured.
 - Order status notifications and tracking-number display.
-- Refund/dispute/wallet/audit/rate-limit database foundation.
-- OTP login flow with hashed, expiring, rate-limited codes.
+- Email verification OTP on signup via Supabase Auth.
 - Private KYC documents and server-side admin access.
 - Platform settings in admin panel; secrets remain Supabase Edge Function secrets.
 
 ## Required external setup
 The application code cannot create merchant accounts or secret keys for you. Before taking real payments, configure:
 - Supabase project + migrations
-- Supabase Auth email/SMTP (Resend can be used)
-- Resend API key + sender address for login OTP
+- Supabase Auth email/SMTP provider (Custom SMTP or Resend)
+- Resend API key + sender address for transactional / notification emails (Edge Functions)
 - Cloudflare Turnstile site/secret keys
 - Stripe and/or PayPal merchant credentials and webhook endpoints if online payment is enabled
 - Tax and shipping rates for the countries/routes you actually support

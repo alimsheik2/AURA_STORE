@@ -1,4 +1,4 @@
-project_id = "YOUR_PROJECT_REF"
+project_id = "aura-store"
 
 [functions.checkout]
 verify_jwt = true

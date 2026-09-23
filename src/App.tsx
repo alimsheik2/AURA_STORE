@@ -47,7 +47,8 @@ function RequireRole({ role, children }: { role: 'admin' | 'vendor'; children: R
   const { user, profile, loading } = useAuth();
   if (loading) return <div className="min-h-screen flex items-center justify-center">{t('common.loading')}</div>;
   if (!user) return <Navigate to="/signin" replace />;
-  if (profile?.role !== role) return <Navigate to="/" replace />;
+  const effectiveRole = profile?.role || (user.user_metadata?.role as 'admin' | 'vendor' | 'customer');
+  if (effectiveRole !== role) return <Navigate to="/" replace />;
   return <>{children}</>;
 }
 

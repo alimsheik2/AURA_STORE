@@ -44,7 +44,7 @@ Deno.serve(async req => {
     const resendKey = Deno.env.get('RESEND_API_KEY');
     const from = Deno.env.get('OTP_FROM_EMAIL');
     if (!resendKey || !from) return json({ error: 'Email provider is not configured' }, 500);
-    const res = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from, to: [email], subject: `Your ShopVerse verification code`, html: `<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;padding:32px"><h2>ShopVerse verification</h2><p>Your verification code is:</p><div style="font-size:34px;font-weight:700;letter-spacing:10px;padding:18px;background:#f3f4f6;border-radius:12px;text-align:center">${code}</div><p>This code expires in 10 minutes. If you did not request it, ignore this email.</p></div>` }) });
+    const res = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from, to: [email], subject: `Your AURA STORE verification code`, html: `<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;padding:32px"><h2>AURA STORE verification</h2><p>Your verification code is:</p><div style="font-size:34px;font-weight:700;letter-spacing:10px;padding:18px;background:#f3f4f6;border-radius:12px;text-align:center">${code}</div><p>This code expires in 10 minutes. If you did not request it, ignore this email.</p></div>` }) });
     if (!res.ok) return json({ error: 'Could not send OTP email' }, 502);
     return json({ ok: true });
   }

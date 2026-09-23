@@ -345,7 +345,7 @@ export default function Checkout() {
               </div>
               <div className="border-t border-gray-100 mt-3 pt-3 flex justify-between items-baseline">
                 <span className="font-bold text-gray-900">{t('common.total')}</span>
-                <span className="text-sm font-medium text-gray-500">Final total calculated securely by server</span>
+                <span className="text-sm font-medium text-gray-500">{t('checkout.serverCalculated')}</span>
               </div>
             </div>
           </div>

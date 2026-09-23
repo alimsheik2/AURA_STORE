@@ -90,11 +90,11 @@ export default function VendorDashboard() {
   }
 
   const tabs: { id: Tab; label: string; icon: typeof LayoutDashboard }[] = [
-    { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-    { id: 'products', label: 'Products', icon: Package },
-    { id: 'orders', label: 'Orders', icon: ShoppingBag },
-    { id: 'analytics', label: 'Analytics', icon: BarChart3 },
-    { id: 'settings', label: 'Settings', icon: Settings },
+    { id: 'overview', label: t('vendor.overview'), icon: LayoutDashboard },
+    { id: 'products', label: t('vendor.products'), icon: Package },
+    { id: 'orders', label: t('vendor.orders'), icon: ShoppingBag },
+    { id: 'analytics', label: t('vendor.analytics'), icon: BarChart3 },
+    { id: 'settings', label: t('vendor.settings'), icon: Settings },
   ];
 
   return (
@@ -116,7 +116,7 @@ export default function VendorDashboard() {
                     shop.status === 'pending' ? 'bg-amber-100 text-amber-700' :
                     'bg-rose-100 text-rose-700'
                   )}>
-                    {shop.status === 'approved' ? 'Active' : shop.status === 'pending' ? 'Pending Approval' : 'Suspended'}
+                    {shop.status === 'approved' ? t('common.active') : shop.status === 'pending' ? t('common.pending') : t('common.suspended')}
                   </span>
                 </div>
               </div>

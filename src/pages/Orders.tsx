@@ -75,7 +75,7 @@ export default function Orders() {
             <div key={order.id} className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
               <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-100">
                 <div>
-                  <p className="text-sm font-semibold text-slate-900">Order #{order.id.slice(0, 8)}</p>
+                  <p className="text-sm font-semibold text-slate-900">{t('orders.order')} #{order.id.slice(0, 8)}</p>
                   <p className="text-xs text-slate-500">{formatDateTime(order.created_at)}</p>
                 </div>
                 <span className={classNames('text-xs font-semibold px-3 py-1 rounded-full capitalize', statusStyles[order.status] ?? 'bg-gray-100 text-gray-700')}>

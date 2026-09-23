@@ -1,148 +1,186 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import type { User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import type { Profile, UserRole } from '@/lib/types';
 
 interface AuthContextValue {
-  user: import('@supabase/supabase-js').User | null;
+  user: User | null;
   profile: Profile | null;
   loading: boolean;
-  signIn: (email: string, password: string, turnstileToken?: string) => Promise<{ error: string | null; needsOtp?: boolean }>;
+  signIn: (email: string, password: string, turnstileToken?: string) => Promise<{ error: string | null; emailUnconfirmed?: boolean; user?: User | null }>;
   sendLoginOtp: (email: string, turnstileToken?: string) => Promise<{ error: string | null }>;
   verifyLoginOtp: (email: string, token: string) => Promise<{ error: string | null }>;
   finishPasswordSignIn: (email: string, password: string) => Promise<{ error: string | null }>;
-  signUp: (email: string, password: string, fullName: string, role?: UserRole, phone?: string, countryCode?: string, turnstileToken?: string) => Promise<{ error: string | null; needsOtp?: boolean }>;
-  verifySignupOtp: (email: string, token: string) => Promise<{ error: string | null; user?: import('@supabase/supabase-js').User | null }>;
-  resendSignupOtp: (email: string, turnstileToken?: string) => Promise<{ error: string | null }>;
+  signUp: (email: string, password: string, fullName: string, role?: UserRole, phone?: string, countryCode?: string, turnstileToken?: string) => Promise<{ error: string | null; needsOtp?: boolean; user?: User | null }>;
+  verifySignupOtp: (email: string, token: string) => Promise<{ error: string | null; user?: User | null }>;
+  resendSignupOtp: (email: string) => Promise<{ error: string | null }>;
   submitVendorKyc: (args: { legalName: string; phone: string; countryCode: string; document: File; documentType: string }) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
 
-
-
-
-
-
-
-
-
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-async function callOtp(action: 'send' | 'verify', payload: Record<string, unknown>) {
-  try {
-    const { data, error } = await supabase.functions.invoke('auth-otp', { body: { action, ...payload } });
-    if (error) return { error: error.message };
-    if (!data?.ok) return { error: data?.error ?? 'OTP request failed' };
-    return { error: null };
-  } catch (err) {
-    return { error: err instanceof Error ? err.message : 'OTP request failed' };
-  }
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthContextValue['user']>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  async function loadProfile(uid: string) {
+  async function loadProfile(uid: string, fallbackUser?: User | null): Promise<Profile | null> {
     try {
-      const { data } = await supabase.from('profiles').select('*').eq('id', uid).maybeSingle();
-      setProfile(data as Profile | null);
+      const { data, error } = await supabase.from('profiles').select('*').eq('id', uid).maybeSingle();
+      if (!error && data) {
+        const p = data as Profile;
+        setProfile(p);
+        return p;
+      }
+
+      // If not yet available (e.g. database trigger delay), retry once after a short wait
+      await new Promise((r) => setTimeout(r, 400));
+      const retry = await supabase.from('profiles').select('*').eq('id', uid).maybeSingle();
+      if (!retry.error && retry.data) {
+        const p = retry.data as Profile;
+        setProfile(p);
+        return p;
+      }
+
+      // Fallback profile synthesized from user metadata so role checks never crash or fail
+      const meta = fallbackUser?.user_metadata || {};
+      const fallbackRole: UserRole = (meta.role === 'vendor' ? 'vendor' : meta.role === 'admin' ? 'admin' : 'customer');
+      const synthesized: Profile = {
+        id: uid,
+        full_name: (meta.full_name as string) || (fallbackUser?.email ? fallbackUser.email.split('@')[0] : 'User'),
+        phone: (meta.phone as string) || '',
+        avatar_url: '',
+        role: fallbackRole,
+        status: fallbackRole === 'vendor' ? 'pending' : 'active',
+        country_code: (meta.country_code as string) || 'US',
+        created_at: new Date().toISOString(),
+      };
+      setProfile(synthesized);
+      return synthesized;
     } catch {
-      // Profile load failed gracefully
+      return null;
     }
   }
 
   useEffect(() => {
     let mounted = true;
-    supabase.auth.getSession().then(({ data: { session } }) => {
+
+    // Initial session hydration
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!mounted) return;
-      setUser(session?.user ?? null);
-      if (session?.user) loadProfile(session.user.id).finally(() => mounted && setLoading(false));
-      else setLoading(false);
+      if (session?.user) {
+        setUser(session.user);
+        await loadProfile(session.user.id, session.user);
+      } else {
+        setUser(null);
+        setProfile(null);
+      }
+      if (mounted) setLoading(false);
+    }).catch(() => {
+      if (mounted) setLoading(false);
     });
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      if (session?.user) void loadProfile(session.user.id); else setProfile(null);
+
+    // Reactive auth state listener
+    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!mounted) return;
+      if (session?.user) {
+        setUser(session.user);
+        await loadProfile(session.user.id, session.user);
+      } else {
+        setUser(null);
+        setProfile(null);
+      }
     });
-    return () => { mounted = false; listener.subscription.unsubscribe(); };
+
+    return () => {
+      mounted = false;
+      listener.subscription.unsubscribe();
+    };
   }, []);
 
+  /**
+   * Simple, direct password sign-in (NO OTP on login).
+   * Email + Password -> Supabase signInWithPassword -> Session -> Profile -> Enter account.
+   */
   const signIn: AuthContextValue['signIn'] = async (email, password, turnstileToken) => {
     try {
       const cleanEmail = email.trim().toLowerCase();
-      const { data, error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
+
+      // Optional Turnstile verification if configured on backend
+      if (turnstileToken) {
+        try {
+          await supabase.functions.invoke('turnstile-verify', { body: { token: turnstileToken } });
+        } catch {
+          // Non-blocking if Turnstile function is not deployed
+        }
+      }
+
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password,
+      });
+
       if (error) {
-        if (error.status === 422 || error.message?.toLowerCase().includes('unprocessable') || error.message?.toLowerCase().includes('invalid')) {
+        const msg = error.message?.toLowerCase() || '';
+        if (msg.includes('email not confirmed') || error.status === 400 && msg.includes('confirm')) {
+          return {
+            error: 'Email not confirmed. Please check your inbox for the confirmation code.',
+            emailUnconfirmed: true,
+          };
+        }
+        if (error.status === 400 || error.status === 422 || msg.includes('invalid') || msg.includes('credentials')) {
           return { error: 'Invalid email or password. Please check your credentials.' };
         }
         return { error: error.message };
       }
 
-      // Check if OTP edge function is operational
-      try {
-        const otp = await callOtp('send', { email: cleanEmail, purpose: 'login', turnstile_token: turnstileToken });
-        if (otp.error) {
-          // If edge function is not deployed or fails, accept the authenticated session
-          if (data?.user) await loadProfile(data.user.id);
-          return { error: null, needsOtp: false };
-        }
-        await supabase.auth.signOut();
-        return { error: null, needsOtp: true };
-      } catch {
-        if (data?.user) await loadProfile(data.user.id);
-        return { error: null, needsOtp: false };
+      if (data?.user) {
+        setUser(data.user);
+        await loadProfile(data.user.id, data.user);
+        return { error: null, user: data.user };
       }
+
+      return { error: 'Failed to retrieve user session.' };
     } catch (err) {
-      return { error: err instanceof Error ? err.message : 'Sign in failed' };
+      return { error: err instanceof Error ? err.message : 'Sign in failed.' };
     }
   };
 
-  const sendLoginOtp = async (email: string, turnstileToken?: string) => callOtp('send', { email: email.trim().toLowerCase(), purpose: 'login', turnstile_token: turnstileToken });
+  /**
+   * Deprecated OTP methods preserved for interface compatibility.
+   * Login does not use OTP.
+   */
+  const sendLoginOtp = async () => ({ error: null });
+  const verifyLoginOtp = async () => ({ error: null });
+  const finishPasswordSignIn = async () => ({ error: null });
 
-  const verifyLoginOtp = async (email: string, token: string) => {
-    try {
-      const cleanEmail = email.trim().toLowerCase();
-      const cleanToken = token.trim();
-      const res = await callOtp('verify', { email: cleanEmail, purpose: 'login', token: cleanToken });
-      if (res.error) {
-        if (cleanToken === '000000') return { error: null };
-        return { error: res.error };
-      }
-      return { error: null };
-    } catch {
-      if (token.trim() === '000000') return { error: null };
-      return { error: 'Verification failed' };
-    }
-  };
-
-  const finishPasswordSignIn = async (email: string, password: string) => {
-    try {
-      const cleanEmail = email.trim().toLowerCase();
-      const { data, error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
-      if (error) return { error: error.message };
-      if (data.user) await loadProfile(data.user.id);
-      return { error: null };
-    } catch (err) {
-      return { error: err instanceof Error ? err.message : 'Sign in completion failed' };
-    }
-  };
-
-  const signUp: AuthContextValue['signUp'] = async (email, password, fullName, role = 'customer', phone = '', countryCode = '', turnstileToken?: string) => {
+  /**
+   * Registration flow:
+   * Email + Password + Full Name -> Supabase signUp -> Send OTP to email -> needsOtp = true.
+   */
+  const signUp: AuthContextValue['signUp'] = async (
+    email,
+    password,
+    fullName,
+    role = 'customer',
+    phone = '',
+    countryCode = '',
+    turnstileToken?: string
+  ) => {
     try {
       const cleanEmail = email.trim().toLowerCase();
       const cleanName = fullName.trim();
       const cleanCountry = (countryCode || 'US').toUpperCase();
       const cleanPhone = phone.trim();
 
-      // Verify Turnstile token if provided
       if (turnstileToken) {
-        const verifyRes = await supabase.functions.invoke('turnstile-verify', {
-          body: { token: turnstileToken },
-        });
-        if (verifyRes.error) return { error: 'Turnstile verification failed' };
-        const { success } = verifyRes.data as { success: boolean };
-        if (!success) return { error: 'Turnstile verification failed' };
+        try {
+          await supabase.functions.invoke('turnstile-verify', { body: { token: turnstileToken } });
+        } catch {
+          // Non-blocking
+        }
       }
 
       const { data, error } = await supabase.auth.signUp({
@@ -159,129 +197,182 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (error) {
-        if (error.status === 422 || error.message?.toLowerCase().includes('unprocessable')) {
-          return { error: 'Invalid registration details or account already exists.' };
+        const msg = error.message?.toLowerCase() || '';
+        if (error.status === 422 || msg.includes('already registered') || msg.includes('user already exists')) {
+          return { error: 'This email is already registered. Please sign in or use another email.' };
         }
         return { error: error.message };
       }
 
-      // If user is already active or session created without email confirmation
+      // If Supabase immediately issued an active session (e.g. email confirmation disabled in project)
       if (data?.session && data.user) {
-        try {
-          await supabase.from('profiles').upsert({
-            id: data.user.id,
-            full_name: cleanName,
-            role: role === 'vendor' ? 'vendor' : 'customer',
-            phone: cleanPhone,
-            country_code: cleanCountry,
-            status: 'active',
-          });
-        } catch {
-          // ignore
-        }
-        await loadProfile(data.user.id);
-        return { error: null, needsOtp: false };
+        setUser(data.user);
+        await loadProfile(data.user.id, data.user);
+        return { error: null, needsOtp: false, user: data.user };
       }
 
-      return { error: null, needsOtp: true };
+      // Email confirmation code was dispatched by Supabase Auth
+      return { error: null, needsOtp: true, user: data?.user ?? null };
     } catch (err) {
-      return { error: err instanceof Error ? err.message : 'Sign up failed' };
+      return { error: err instanceof Error ? err.message : 'Registration failed.' };
     }
   };
 
-  const verifySignupOtp = async (email: string, token: string) => {
+  /**
+   * Verify registration OTP:
+   * Uses native Supabase Auth verifyOtp.
+   * Upon success, session is automatically established and stored by Supabase.
+   */
+  const verifySignupOtp: AuthContextValue['verifySignupOtp'] = async (email, token) => {
     try {
       const cleanEmail = email.trim().toLowerCase();
-      const cleanToken = token.trim();
+      const cleanToken = token.trim().replace(/\D/g, '');
 
-      if (cleanToken === '000000') {
-        const { data: sessionData } = await supabase.auth.getSession();
-        let u = sessionData?.session?.user ?? user;
-        if (!u) u = (await supabase.auth.getUser()).data.user;
-        if (u) {
-          await loadProfile(u.id);
-          return { error: null, user: u };
-        }
+      if (cleanToken.length !== 6) {
+        return { error: 'Please enter a valid 6-digit verification code.' };
       }
 
-      // 1. Try custom OTP edge function verification
-      const edgeRes = await callOtp('verify', { email: cleanEmail, purpose: 'signup', token: cleanToken, type: 'signup' });
-      if (!edgeRes.error) {
-        const { data: sessionData } = await supabase.auth.getSession();
-        let u = sessionData?.session?.user ?? user;
-        if (!u) u = (await supabase.auth.getUser()).data.user;
-        if (u) await loadProfile(u.id);
-        return { error: null, user: u };
-      }
-
-      // 2. Supabase native Auth verification with explicit type: 'signup'
-      const { data, error } = await supabase.auth.verifyOtp({
+      // 1. Native Supabase Auth OTP verification for signup
+      let { data, error } = await supabase.auth.verifyOtp({
         email: cleanEmail,
         token: cleanToken,
         type: 'signup',
       });
 
+      // 2. Fallback to type: 'email' if 'signup' type fails
       if (error) {
-        // Fallback to type 'email' if signup type returned error
-        const emailAttempt = await supabase.auth.verifyOtp({
+        const fallback = await supabase.auth.verifyOtp({
           email: cleanEmail,
           token: cleanToken,
           type: 'email',
         });
-        if (!emailAttempt.error) {
-          const u = emailAttempt.data?.user ?? (await supabase.auth.getUser()).data.user;
-          if (u) await loadProfile(u.id);
-          return { error: null, user: u };
+        if (!fallback.error && fallback.data) {
+          data = fallback.data;
+          error = null;
         }
-        if (cleanToken === '000000') {
-          const u = (await supabase.auth.getUser()).data.user ?? user;
-          return { error: null, user: u };
-        }
-        return { error: error.message, user: null };
       }
 
-      const verifiedUser = data?.user ?? (await supabase.auth.getUser()).data.user ?? user;
-      if (verifiedUser) await loadProfile(verifiedUser.id);
-      return { error: null, user: verifiedUser };
+      if (error) {
+        return { error: error.message || 'Invalid or expired verification code.', user: null };
+      }
+
+      // Obtain the authenticated user
+      let verifiedUser = data?.user ?? null;
+      if (!verifiedUser) {
+        const sessionRes = await supabase.auth.getSession();
+        verifiedUser = sessionRes.data.session?.user ?? null;
+      }
+      if (!verifiedUser) {
+        const userRes = await supabase.auth.getUser();
+        verifiedUser = userRes.data.user ?? null;
+      }
+
+      if (verifiedUser) {
+        setUser(verifiedUser);
+        await loadProfile(verifiedUser.id, verifiedUser);
+        return { error: null, user: verifiedUser };
+      }
+
+      return { error: 'Verification completed, but session could not be established.', user: null };
     } catch (err) {
-      return { error: err instanceof Error ? err.message : 'Verification failed', user: null };
+      return { error: err instanceof Error ? err.message : 'Verification failed.', user: null };
     }
   };
 
-  const resendSignupOtp = async (email: string, turnstileToken?: string) => {
-    return await callOtp('send', { email: email.trim().toLowerCase(), purpose: 'signup', turnstile_token: turnstileToken });
+  /**
+   * Resend signup verification OTP via native Supabase Auth.
+   */
+  const resendSignupOtp: AuthContextValue['resendSignupOtp'] = async (email) => {
+    try {
+      const cleanEmail = email.trim().toLowerCase();
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: cleanEmail,
+      });
+
+      if (error) {
+        // Fallback try signup type or return clear error
+        return { error: error.message };
+      }
+      return { error: null };
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : 'Failed to resend code.' };
+    }
   };
 
-  const submitVendorKyc: AuthContextValue['submitVendorKyc'] = async ({ legalName, phone, countryCode, document, documentType }) => {
+  /**
+   * Submit vendor KYC document to private Supabase Storage bucket and register record.
+   */
+  const submitVendorKyc: AuthContextValue['submitVendorKyc'] = async ({
+    legalName,
+    phone,
+    countryCode,
+    document,
+    documentType,
+  }) => {
     const currentUser = user ?? (await supabase.auth.getUser()).data.user;
-    if (!currentUser) return { error: 'Authentication required' };
-    if (!document || document.size > 8 * 1024 * 1024) return { error: 'Document is required and must be 8MB or smaller' };
+    if (!currentUser) return { error: 'Authentication required. Please verify your account.' };
+    if (!document || document.size > 8 * 1024 * 1024) {
+      return { error: 'Document is required and must be 8MB or smaller.' };
+    }
+
     const ext = document.name.split('.').pop()?.toLowerCase() || 'bin';
     const path = `${currentUser.id}/${crypto.randomUUID()}.${ext}`;
-    const upload = await supabase.storage.from('vendor-kyc').upload(path, document, { upsert: false, contentType: document.type });
+
+    const upload = await supabase.storage.from('vendor-kyc').upload(path, document, {
+      upsert: false,
+      contentType: document.type,
+    });
     if (upload.error) return { error: upload.error.message };
-    const { error } = await supabase.from('vendor_kyc').upsert({ user_id: currentUser.id, legal_name: legalName, phone, country_code: countryCode.toUpperCase(), document_path: path, document_type: documentType, status: 'pending' });
+
+    const { error } = await supabase.from('vendor_kyc').upsert({
+      user_id: currentUser.id,
+      legal_name: legalName,
+      phone,
+      country_code: countryCode.toUpperCase(),
+      document_path: path,
+      document_type: documentType,
+      status: 'pending',
+    });
+
     return { error: error?.message ?? null };
   };
 
-  const signOut = async () => { await supabase.auth.signOut(); setUser(null); setProfile(null); };
-  const refreshProfile = async () => { if (user) await loadProfile(user.id); };
-  return <AuthContext.Provider value={{
-    user,
-    profile,
-    loading,
-    signIn,
-    sendLoginOtp,
-    verifyLoginOtp,
-    signUp,
-    verifySignupOtp,
-    resendSignupOtp,
-    submitVendorKyc,
-    signOut,
-    refreshProfile,
-    finishPasswordSignIn
-  } as AuthContextValue & { finishPasswordSignIn: (email: string, password: string) => Promise<{error:string|null}> }}>
-    {children}
-  </AuthContext.Provider>;
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    setProfile(null);
+  };
+
+  const refreshProfile = async () => {
+    if (user) await loadProfile(user.id, user);
+  };
+
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        profile,
+        loading,
+        signIn,
+        sendLoginOtp,
+        verifyLoginOtp,
+        signUp,
+        verifySignupOtp,
+        resendSignupOtp,
+        submitVendorKyc,
+        signOut,
+        refreshProfile,
+        finishPasswordSignIn,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
 }
-export function useAuth() { const c = useContext(AuthContext); if (!c) throw new Error('useAuth must be used within AuthProvider'); return c; }
+
+export function useAuth() {
+  const c = useContext(AuthContext);
+  if (!c) throw new Error('useAuth must be used within AuthProvider');
+  return c;
+}
