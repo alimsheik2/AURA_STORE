@@ -82,6 +82,13 @@ alter table public.orders
 -- 5. Wallet Ledger Immutability & Stored Procedure
 alter table public.wallet_ledger enable row level security;
 
+-- Enum for wallet entry types used by adjust_wallet
+create type public.wallet_entry_type as enum (
+  'credit',
+  'debit',
+  'adjustment'
+);
+comment on type public.wallet_entry_type is 'Types of wallet ledger entries. ''adjustment'' is used by the adjust_wallet RPC.';
 -- Prevent UPDATE and DELETE on wallet_ledger for authenticated users
 drop policy if exists "No updates on wallet ledger" on public.wallet_ledger;
 drop policy if exists "No deletes on wallet ledger" on public.wallet_ledger;
