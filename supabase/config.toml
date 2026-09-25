@@ -1,0 +1,22 @@
+project_id = "YOUR_PROJECT_REF"
+
+[functions.checkout]
+verify_jwt = true
+[functions.turnstile-verify]
+verify_jwt = false
+[functions.request-withdrawal]
+verify_jwt = true
+[functions.admin-vendor-review]
+verify_jwt = true
+
+[functions.auth-otp]
+verify_jwt = false
+
+[functions.create-payment]
+verify_jwt = false
+
+[functions.payment-webhook]
+verify_jwt = false
+
+[functions.capture-paypal]
+verify_jwt = false

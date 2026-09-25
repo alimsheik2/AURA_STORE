@@ -1,0 +1,101 @@
+# AURA-STORE — Production Marketplace Engineering Prompt
+
+You are working inside the existing AURA-STORE codebase. Do NOT rebuild the project from scratch and do NOT replace working features unnecessarily. Inspect the existing code, database migrations, Supabase Edge Functions, and UI before making changes.
+
+## Product goal
+Build a production-grade global multi-vendor marketplace inspired by the capabilities of large marketplaces, but with original UI, branding, copy, and implementation. It must support customers, vendors, and administrators across countries and languages.
+
+## Non-negotiable roles and access
+- Customer: browse, search, cart, checkout, orders, tracking, refunds/returns, disputes, notifications, profile.
+- Vendor: only after KYC review and admin approval may publish/sell products; can manage own shop, products, inventory, orders, analytics, payout details and withdrawal requests.
+- Admin: full platform control, vendor/KYC review, customers, products, orders, commissions, taxes, shipping, payments, refunds, disputes, wallets, withdrawals, notifications, audit logs and platform settings.
+- Never allow a client to self-promote to admin or bypass account/shop/KYC status.
+
+## Authentication and security
+- Email/password plus OTP verification for sign-in and sign-up.
+- OTP codes must be short-lived, hashed at rest, rate limited by email and IP, and protected against brute force.
+- Use Resend/SMTP for transactional email. Secrets only in Supabase/hosting secrets, never in VITE frontend variables.
+- Use Cloudflare Turnstile on authentication forms and verify it server-side.
+- Enforce RLS and server-side authorization for every sensitive operation.
+- Never trust frontend prices, totals, commissions, stock, roles, payment status, or vendor payouts.
+- Use secure Edge Functions/RPCs for checkout, payment confirmation, refunds, withdrawals and other financial operations.
+- Add idempotency to checkout and payment webhooks.
+- Add security headers/CSP in deployment configuration.
+- Do not expose private KYC documents; generate short-lived signed URLs only for authorized admins.
+- Maintain audit logs for admin and financial actions.
+
+## Marketplace and catalog
+- Products require valid title/name, description, category, price, currency, at least one image, inventory and required shipping data before publication.
+- Vendors cannot publish until shop + KYC are approved.
+- Support products with and without variations.
+- Prevent overselling with atomic stock updates.
+- Support product translations and a scalable multi-language UI.
+- No hard-coded free-shipping rule based on a $50 threshold. Shipping must come from configurable shipping rates.
+
+## Checkout and money
+- Server calculates item prices, variation adjustments, stock, taxes, shipping, commissions and final totals.
+- Support COD, Stripe and PayPal behind admin-configurable availability flags.
+- Stripe/PayPal payments must use server-created payment sessions/orders and verified webhooks.
+- Never mark an online payment as paid from the browser. Only verified provider events may change payment status.
+- Store provider payment IDs and payment event IDs safely and idempotently.
+- Support refunds and partial refunds through server-side flows.
+- Commission is configurable per vendor, with category/default fallback.
+- Vendor wallet balances must be derived from an immutable ledger; clients cannot directly mutate financial tables.
+- Withdrawal requests require server-side balance checks and admin review.
+
+## Shipping and tracking
+- Shipping rates are configurable by origin, destination, weight and currency.
+- Order status should support a useful lifecycle such as pending, confirmed, processing, warehouse/hub, in_transit, arrived_country, out_for_delivery, delivered and cancelled where appropriate.
+- Store tracking number and carrier.
+- Customer sees tracking timeline and receives notifications on status changes.
+
+## Admin panel
+The admin dashboard must provide usable controls for:
+- vendor/KYC review and signed document viewing
+- customer management
+- product/category management
+- vendor-specific commission rates
+- order status + tracking management
+- payment/refund/dispute management
+- wallet and withdrawal review
+- tax/shipping/exchange-rate settings
+- payment provider enable/disable settings
+- notification/audit log visibility
+- platform/company configuration fields, initially blank where real credentials are required
+
+## UI/UX
+- Responsive mobile/desktop UI.
+- Original polished marketplace design, not a clone.
+- Accessible forms, validation, loading, empty, success and error states.
+- Support RTL and LTR and all UI strings through the i18n system.
+- Never hard-code fake tax, shipping or payment availability in the checkout UI when the server can provide real configuration.
+
+## Engineering rules
+- Prefer existing packages and architecture.
+- Use `@/` aliases.
+- Use TypeScript with strict, safe types; avoid `any` where practical.
+- Keep secrets out of source control.
+- Add migrations instead of manually changing production schema.
+- Every financial mutation must be atomic and auditable.
+- Test the complete flows before declaring the project production-ready.
+
+## Definition of done
+Before saying “ready for production”, verify:
+1. npm install succeeds.
+2. typecheck succeeds.
+3. production build succeeds.
+4. lint succeeds or documented warnings are resolved.
+5. customer signup/login/OTP works.
+6. vendor signup/KYC/approval/publishing works.
+7. product validation and inventory are enforced server-side.
+8. COD checkout works end-to-end.
+9. Stripe and PayPal flows are fully configured and verified when credentials are supplied; otherwise clearly remain disabled.
+10. payment webhooks are idempotent and cannot be forged by the browser.
+11. refund/dispute/withdrawal paths have authorization checks.
+12. admin controls work without direct client access to protected financial tables.
+13. tracking and notifications work.
+14. no hard-coded $50 free shipping rule exists.
+15. RLS/security review is complete.
+16. deployment secrets and production setup are documented.
+
+When a requirement needs an external provider credential, implement the complete integration path and configuration surface, but never invent credentials. Leave it disabled until the real secret/webhook is supplied.
