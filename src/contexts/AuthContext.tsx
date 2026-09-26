@@ -87,7 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (data?.user) await loadProfile(data.user.id);
           return { error: null, needsOtp: false };
         }
-        await supabase.auth.signOut();
+        // await supabase.auth.signOut(); // keep session for OTP verification
         return { error: null, needsOtp: true };
       } catch {
         if (data?.user) await loadProfile(data.user.id);
